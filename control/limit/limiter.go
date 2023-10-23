@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	gerr "github.com/fatedier/golib/errors"
+	gerr "github.com/wqshr12345/golib/errors"
 )
 
 var (

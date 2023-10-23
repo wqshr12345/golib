@@ -18,10 +18,10 @@ import (
 	"io"
 	"sync"
 
-	"github.com/fatedier/golib/adaptive"
-	"github.com/fatedier/golib/crypto"
-	"github.com/fatedier/golib/pool"
 	"github.com/golang/snappy"
+	"github.com/wqshr12345/golib/adaptive"
+	"github.com/wqshr12345/golib/crypto"
+	"github.com/wqshr12345/golib/pool"
 )
 
 // Join two io.ReadWriteCloser and do some operations.
