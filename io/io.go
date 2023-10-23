@@ -76,7 +76,8 @@ func WithCompressionFromPool(rwc io.ReadWriteCloser) (out io.ReadWriteCloser, re
 	sr := pool.GetSnappyReader(rwc)
 	sw := pool.GetSnappyWriter(rwc)
 	out = WrapReadWriteCloser(sr, sw, func() error {
-		err := rwc.Close()
+		err := sw.Close()
+		err = rwc.Close()
 		return err
 	})
 	recycle = func() {
