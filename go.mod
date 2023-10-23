@@ -1,4 +1,4 @@
-module github.com/fatedier/golib
+module github.com/wqshr12345/golib
 
 go 1.20
 
