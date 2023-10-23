@@ -66,12 +66,15 @@ type Writer struct {
 	oBuf []byte
 }
 
-func NewWriter(w io.Writer) *Writer {
+func NewWriter(w io.Writer, bufSize int) *Writer {
+	if bufSize > maxOriginalDataSize {
+		panic("lands: the buffer is larger than the maximum of snappy's compression data.")
+	}
 	return &Writer{
 		outW:  w,
 		cmprW: snappy.NewWriter(w),
-		// iBuf:  make([]byte, 0, maxOriginalDataSize),
-		oBuf: make([]byte, packageHeaderSize),
+		iBuf:  make([]byte, 0, bufSize),
+		oBuf:  make([]byte, packageHeaderSize),
 	}
 }
 

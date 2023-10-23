@@ -87,9 +87,9 @@ func WithCompressionFromPool(rwc io.ReadWriteCloser) (out io.ReadWriteCloser, re
 	return
 }
 
-func WithAdaptiveEncoding(rwc io.ReadWriteCloser) (out io.ReadWriteCloser, recycle func()) {
+func WithAdaptiveEncoding(rwc io.ReadWriteCloser, bufSize int) (out io.ReadWriteCloser, recycle func()) {
 	sr := adaptive.NewReader(rwc)
-	sw := adaptive.NewWriter(rwc)
+	sw := adaptive.NewWriter(rwc, bufSize)
 	out = WrapReadWriteCloser(sr, sw, func() error {
 		err := sw.Close()
 		err = rwc.Close()
