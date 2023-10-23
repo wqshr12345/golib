@@ -91,7 +91,8 @@ func WithAdaptiveEncoding(rwc io.ReadWriteCloser) (out io.ReadWriteCloser, recyc
 	sr := adaptive.NewReader(rwc)
 	sw := adaptive.NewWriter(rwc)
 	out = WrapReadWriteCloser(sr, sw, func() error {
-		err := rwc.Close()
+		err := sw.Close()
+		err = rwc.Close()
 		return err
 	})
 	return
