@@ -18,6 +18,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/fatedier/golib/adaptive"
 	"github.com/fatedier/golib/crypto"
 	"github.com/fatedier/golib/pool"
 	"github.com/golang/snappy"
@@ -82,6 +83,16 @@ func WithCompressionFromPool(rwc io.ReadWriteCloser) (out io.ReadWriteCloser, re
 		pool.PutSnappyReader(sr)
 		pool.PutSnappyWriter(sw)
 	}
+	return
+}
+
+func WithAdaptiveEncoding(rwc io.ReadWriteCloser) (out io.ReadWriteCloser, recycle func()) {
+	sr := adaptive.NewReader(rwc)
+	sw := adaptive.NewWriter(rwc)
+	out = WrapReadWriteCloser(sr, sw, func() error {
+		err := rwc.Close()
+		return err
+	})
 	return
 }
 
