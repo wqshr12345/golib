@@ -107,6 +107,7 @@ func (r *Reader) fill() error {
 	endTs := time.Now().UnixNano()
 	compressInfo := CompressInfo{
 		PkgId:          r.pkgID,
+		DataLen:        len(r.oBuf),
 		CompressType:   int(compressType),
 		CompressTime:   midTs - startTs,
 		TranportTime:   mid2Ts - midTs,
