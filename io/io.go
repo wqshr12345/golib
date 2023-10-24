@@ -87,8 +87,8 @@ func WithCompressionFromPool(rwc io.ReadWriteCloser) (out io.ReadWriteCloser, re
 	return
 }
 
-func WithAdaptiveEncoding(rwc io.ReadWriteCloser, bufSize int) (out io.ReadWriteCloser, recycle func()) {
-	sr := adaptive.NewReader(rwc)
+func WithAdaptiveEncoding(rwc io.ReadWriteCloser, reportFunc adaptive.ReportFunction, bufSize int) (out io.ReadWriteCloser, recycle func()) {
+	sr := adaptive.NewReader(rwc, reportFunc)
 	sw := adaptive.NewWriter(rwc, bufSize)
 	out = WrapReadWriteCloser(sr, sw, func() error {
 		err := sw.Close()
@@ -138,4 +138,12 @@ func (rwc *ReadWriteCloser) Close() error {
 		return rwc.closeFn()
 	}
 	return nil
+}
+
+func (rwc *ReadWriteCloser) Report(info adaptive.CompressInfo) {
+	if value, ok := rwc.w.(adaptive.Reporter); ok {
+		value.Report(info)
+	} else {
+		panic("the writer does not implement adaptive.Reporter interface")
+	}
 }

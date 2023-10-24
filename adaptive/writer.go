@@ -19,7 +19,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/golang/snappy"
+	"github.com/wqshr12345/golib/compression"
+	"github.com/wqshr12345/golib/compression/snappy"
 )
 
 const (
@@ -36,13 +37,13 @@ Adaptive Encoding Format：
 // TODO(wangqian): extract the const parameter to a config file.
 const (
 	// magicHeader             = "LANDS"
-	packageTimestampSize    = 8
+	packageTimestampSize    = 16 // startTs + midTs
 	packageCompressTypeSize = 1
 	packageDataLenSize      = 4
 
 	maxOriginalDataSize = 65536
 
-	// temoparily is work only on Snappy.
+	// temoparily is not used, because there is no reusable oBuf in reader.
 	maxCompressedDataSize = 76490
 
 	packageHeaderSize = packageTimestampSize + packageCompressTypeSize + packageDataLenSize
@@ -53,17 +54,14 @@ type Writer struct {
 	// the data will be transported to outW.
 	outW io.Writer
 
-	// only used to compress data, we will not transport data to w2.
-	cmprW io.Writer
+	cmpr compression.Compressor
 
 	err error
 
 	// iBuf is a buffer for the incoming unadaptiveencoded data.If it's nil, we will not buffer the incoming data.
 	iBuf []byte
 
-	// oBuf is a buffer for the outgoing adaptiveencoded header.
-	// Note(wangqian): The actually compressed data is stored in cmprW.
-	oBuf []byte
+	compressInfo []CompressInfo
 }
 
 func NewWriter(w io.Writer, bufSize int) *Writer {
@@ -71,10 +69,9 @@ func NewWriter(w io.Writer, bufSize int) *Writer {
 		panic("lands: the buffer is larger than the maximum of snappy's compression data.")
 	}
 	return &Writer{
-		outW:  w,
-		cmprW: snappy.NewWriter(w),
-		iBuf:  make([]byte, 0, bufSize),
-		oBuf:  make([]byte, packageHeaderSize),
+		outW: w,
+		cmpr: snappy.NewCompressor(),
+		iBuf: make([]byte, 0, bufSize),
 	}
 }
 
@@ -107,36 +104,47 @@ func (w *Writer) Write(p []byte) (nRet int, errRet error) {
 
 // contruct a adaptive encodeing format use datas in p.
 func (w *Writer) write(p []byte) (nRet int, errRet error) {
-
 	if w.err != nil {
 		return 0, w.err
 	}
+
+	oBuf := make([]byte, packageHeaderSize)
+
+	// TODO(wangqian): use a oBuf to avoid memory allocate.
+	startTs := time.Now().UnixNano()
+	compressedData := w.cmpr.Compress(p)
+	midTs := time.Now().UnixNano()
+	dataLen := len(compressedData)
 	compressType := uint8(compressTypeSnappy)
-	timestamp := time.Now().UnixNano()
 
-	// Note(wangqian): We should use original data len instead of compressed data len.
-	dataLen := len(p)
+	oBuf[0] = compressType
+	oBuf[1] = uint8(startTs >> 0)
+	oBuf[2] = uint8(startTs >> 8)
+	oBuf[3] = uint8(startTs >> 16)
+	oBuf[4] = uint8(startTs >> 24)
+	oBuf[5] = uint8(startTs >> 32)
+	oBuf[6] = uint8(startTs >> 40)
+	oBuf[7] = uint8(startTs >> 48)
+	oBuf[8] = uint8(startTs >> 56)
+	oBuf[9] = uint8(midTs >> 0)
+	oBuf[10] = uint8(midTs >> 8)
+	oBuf[11] = uint8(midTs >> 16)
+	oBuf[12] = uint8(midTs >> 24)
+	oBuf[13] = uint8(midTs >> 32)
+	oBuf[14] = uint8(midTs >> 40)
+	oBuf[15] = uint8(midTs >> 48)
+	oBuf[16] = uint8(midTs >> 56)
+	oBuf[17] = uint8(dataLen >> 0)
+	oBuf[18] = uint8(dataLen >> 8)
+	oBuf[19] = uint8(dataLen >> 16)
+	oBuf[20] = uint8(dataLen >> 24)
 
-	w.oBuf[0] = compressType
-	w.oBuf[1] = uint8(timestamp >> 0)
-	w.oBuf[2] = uint8(timestamp >> 8)
-	w.oBuf[3] = uint8(timestamp >> 16)
-	w.oBuf[4] = uint8(timestamp >> 24)
-	w.oBuf[5] = uint8(timestamp >> 32)
-	w.oBuf[6] = uint8(timestamp >> 40)
-	w.oBuf[7] = uint8(timestamp >> 48)
-	w.oBuf[8] = uint8(timestamp >> 56)
-	w.oBuf[9] = uint8(dataLen >> 0)
-	w.oBuf[10] = uint8(dataLen >> 8)
-	w.oBuf[11] = uint8(dataLen >> 16)
-	w.oBuf[12] = uint8(dataLen >> 24)
-
-	if _, err := w.outW.Write(w.oBuf[:packageHeaderSize]); err != nil {
+	if _, err := w.outW.Write(oBuf); err != nil {
 		w.err = err
 		return nRet, err
 	}
 
-	if _, err := w.cmprW.Write(p); err != nil {
+	if _, err := w.outW.Write(compressedData); err != nil {
 		w.err = err
 		return nRet, err
 	}
@@ -155,6 +163,11 @@ func (w *Writer) Flush() error {
 	w.write(w.iBuf)
 	w.iBuf = w.iBuf[:0]
 	return w.err
+}
+
+func (w *Writer) Report(info CompressInfo) {
+	// TODO(wangqian):Do more things.
+	w.compressInfo = append(w.compressInfo, info)
 }
 
 func (w *Writer) Close() error {

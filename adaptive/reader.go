@@ -17,84 +17,49 @@ package adaptive
 import (
 	"errors"
 	"io"
+	"time"
 
-	"github.com/golang/snappy"
+	"github.com/wqshr12345/golib/compression"
+	"github.com/wqshr12345/golib/compression/snappy"
 )
 
-func NewReader(r io.Reader) *Reader {
+func NewReader(r io.Reader, reportFunc ReportFunction) *Reader {
 	return &Reader{
-		inR:   r,
-		cmprR: snappy.NewReader(r),
-		iBuf:  make([]byte, packageHeaderSize),
+		inR:        r,
+		cmpr:       snappy.NewDecompressor(),
+		reportFunc: reportFunc,
 	}
 }
 
 type Reader struct {
-
 	// the data will be transported from inR.
 	inR io.Reader
 
-	cmprR io.Reader
+	cmpr compression.Decompressor
 
 	err error
 
-	//iBuf is a buffer for the incoming adaptiveencoded header.
-	iBuf []byte
+	// buffered decompressed data.
+	oBuf []byte
 
-	// Note(wangqian):The actually decompressed data is stored in cmprR's buf.
+	// oBuf[start:] represent valid data.
+	start int
 
-	dataOff int
-
-	dataLen int
-
-	compressType byte
-
-	timestamp int64
-
-	// Note(wangqian): We should not use a oBuf, because here we will not do some decompress operations.We should not use memR as well, because in read logic,adaptive reader is behind the snappy reader.
+	reportFunc ReportFunction
 }
 
-func (r *Reader) Reset(reader io.Reader) {
-	r.inR = reader
-	r.cmprR = snappy.NewReader(reader)
-	r.iBuf = make([]byte, packageHeaderSize)
-	r.dataOff = 0
-	r.dataLen = 0
-	r.compressType = 0
-	r.timestamp = 0
-	r.err = nil
-
-}
-
-func (r *Reader) Read(p []byte) (n int, err error) {
-	// 1. read package header to iBuf.
-
-	// Based on the premise that a package with an adaptive encoding format must encapsulate a Snappy chunk
-	if r.dataOff > r.dataLen {
-		return 0, errors.New("LANDS: off large than len")
-	}
-	if r.dataOff == r.dataLen {
-		if !r.readFull(r.iBuf, true) {
-			return 0, r.err
-		}
-		r.compressType = r.iBuf[0]
-		r.timestamp = int64(r.iBuf[1]) | int64(r.iBuf[2])<<8 | int64(r.iBuf[3])<<16 | int64(r.iBuf[4])<<24 | int64(r.iBuf[5])<<32 | int64(r.iBuf[6])<<40 | int64(r.iBuf[7])<<48 | int64(r.iBuf[8])<<56
-		r.dataLen = int(r.iBuf[9]) | int(r.iBuf[10])<<8 | int(r.iBuf[11])<<16 | int(r.iBuf[12])<<24
-		r.dataOff = 0
+func (r *Reader) Read(p []byte) (int, error) {
+	if r.err != nil {
+		return 0, r.err
 	}
 
-	// 2. read package header to dataBuf.
-
-	switch r.compressType {
-	case compressTypeSnappy:
-		if n, r.err = r.cmprR.Read(p); err != nil {
-			return n, r.err
-		}
-		r.dataOff += n
-	default:
-		panic("LANDS: unsupported compression type")
+	if err := r.fill(); err != nil {
+		return 0, err
 	}
-	return n, r.err
+
+	n := copy(p, r.oBuf[r.start:])
+	r.start += n
+	return n, nil
 }
 
 func (r *Reader) readFull(p []byte, allowEOF bool) (ok bool) {
@@ -105,4 +70,46 @@ func (r *Reader) readFull(p []byte, allowEOF bool) (ok bool) {
 		return false
 	}
 	return true
+}
+
+func (r *Reader) fill() error {
+	if r.start > len(r.oBuf) {
+		panic("LANDS: start > end")
+	}
+	if r.start < len(r.oBuf) {
+		return nil
+	}
+	// 1. read package header.
+	iBuf := make([]byte, packageHeaderSize)
+	if !r.readFull(iBuf, true) {
+		return r.err
+	}
+	compressType := iBuf[0]
+	startTs := int64(iBuf[1]) | int64(iBuf[2])<<8 | int64(iBuf[3])<<16 | int64(iBuf[4])<<24 | int64(iBuf[5])<<32 | int64(iBuf[6])<<40 | int64(iBuf[7])<<48 | int64(iBuf[8])<<56
+	midTs := int64(iBuf[9]) | int64(iBuf[10])<<8 | int64(iBuf[11])<<16 | int64(iBuf[12])<<24 | int64(iBuf[13])<<32 | int64(iBuf[14])<<40 | int64(iBuf[15])<<48 | int64(iBuf[16])<<56
+	dataLen := int(iBuf[17]) | int(iBuf[18])<<8 | int(iBuf[19])<<16 | int(iBuf[20])<<24
+
+	compressedData := make([]byte, dataLen)
+
+	// 2. read compressed data.
+	if !r.readFull(compressedData, false) {
+		return r.err
+	}
+
+	// 3. decompress compressed data.
+	// TODO(wangqian): Use compressType to choose different decompressor.
+	// TODO(wangqian): Should we avoid memory allocate every times?
+	mid2Ts := time.Now().UnixNano()
+	r.oBuf = r.cmpr.Decompress(nil, compressedData)
+	endTs := time.Now().UnixNano()
+	compressInfo := CompressInfo{
+		compressType:   int(compressType),
+		compressTime:   midTs - startTs,
+		tranportTime:   mid2Ts - midTs,
+		decompressTime: endTs - mid2Ts,
+		compressRatio:  float64(len(r.oBuf)) / float64(dataLen),
+	}
+	r.reportFunc(compressInfo)
+	r.start = 0
+	return nil
 }
