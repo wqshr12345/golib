@@ -1,12 +1,12 @@
 package adaptive
 
 type CompressInfo struct {
-	pkgId          int
-	compressType   int
-	compressTime   int64
-	tranportTime   int64
-	decompressTime int64
-	compressRatio  float64
+	PkgId          int
+	CompressType   int
+	CompressTime   int64
+	TranportTime   int64
+	DecompressTime int64
+	CompressRatio  float64
 }
 
 type ReportFunction func(CompressInfo)

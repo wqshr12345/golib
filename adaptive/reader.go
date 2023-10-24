@@ -28,6 +28,7 @@ func NewReader(r io.Reader, reportFunc ReportFunction) *Reader {
 		inR:        r,
 		cmpr:       snappy.NewDecompressor(),
 		reportFunc: reportFunc,
+		pkgID:      0,
 	}
 }
 
@@ -46,6 +47,8 @@ type Reader struct {
 	start int
 
 	reportFunc ReportFunction
+
+	pkgID int
 }
 
 func (r *Reader) Read(p []byte) (int, error) {
@@ -103,13 +106,15 @@ func (r *Reader) fill() error {
 	r.oBuf = r.cmpr.Decompress(nil, compressedData)
 	endTs := time.Now().UnixNano()
 	compressInfo := CompressInfo{
-		compressType:   int(compressType),
-		compressTime:   midTs - startTs,
-		tranportTime:   mid2Ts - midTs,
-		decompressTime: endTs - mid2Ts,
-		compressRatio:  float64(len(r.oBuf)) / float64(dataLen),
+		PkgId:          r.pkgID,
+		CompressType:   int(compressType),
+		CompressTime:   midTs - startTs,
+		TranportTime:   mid2Ts - midTs,
+		DecompressTime: endTs - mid2Ts,
+		CompressRatio:  float64(len(r.oBuf)) / float64(dataLen),
 	}
 	r.reportFunc(compressInfo)
 	r.start = 0
+	r.pkgID += 1
 	return nil
 }
