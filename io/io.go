@@ -20,7 +20,9 @@ import (
 
 	"github.com/golang/snappy"
 	"github.com/wqshr12345/golib/adaptive"
+	"github.com/wqshr12345/golib/asyncio"
 	"github.com/wqshr12345/golib/crypto"
+	"github.com/wqshr12345/golib/interfaces"
 	"github.com/wqshr12345/golib/pool"
 )
 
@@ -38,6 +40,30 @@ func Join(c1 io.ReadWriteCloser, c2 io.ReadWriteCloser) (inCount int64, outCount
 		*count, recordErrs[number] = io.CopyBuffer(to, from, buf)
 	}
 
+	wait.Add(2)
+	go pipe(0, c1, c2, &inCount)
+	go pipe(1, c2, c1, &outCount)
+	wait.Wait()
+
+	for _, e := range recordErrs {
+		if e != nil {
+			errors = append(errors, e)
+		}
+	}
+	return
+}
+
+func AsyncJoin(c1 interfaces.ReadWriteCloseReportFlusher, c2 interfaces.ReadWriteCloseReportFlusher, chanSize int, timeOut int, bufSize int) (inCount int64, outCount int64, errors []error) {
+	var wait sync.WaitGroup
+	recordErrs := make([]error, 2)
+	pipe := func(number int, to interfaces.ReadWriteCloseReportFlusher, from interfaces.ReadWriteCloseReportFlusher, count *int64) {
+		defer wait.Done()
+		defer to.Close()
+		defer from.Close()
+
+		asyncIo := asyncio.NewAsyncIo(from, to, chanSize, timeOut, bufSize)
+		*count, recordErrs[number] = asyncIo.Copy()
+	}
 	wait.Add(2)
 	go pipe(0, c1, c2, &inCount)
 	go pipe(1, c2, c1, &outCount)
@@ -87,10 +113,10 @@ func WithCompressionFromPool(rwc io.ReadWriteCloser) (out io.ReadWriteCloser, re
 	return
 }
 
-func WithAdaptiveEncoding(rwc io.ReadWriteCloser, reportFunc adaptive.ReportFunction, bufSize int) (out io.ReadWriteCloser, recycle func()) {
+func WithAdaptiveEncoding(rwc io.ReadWriteCloser, reportFunc adaptive.ReportFunction, bufSize int) (out interfaces.ReadWriteCloseReportFlusher, recycle func()) {
 	sr := adaptive.NewReader(rwc, reportFunc)
 	sw := adaptive.NewWriter(rwc, bufSize)
-	out = WrapReadWriteCloser(sr, sw, func() error {
+	out = WrapReadWriteCloseReportFlusher(sr, sw, func() error {
 		err := sw.Close()
 		err = rwc.Close()
 		return err
@@ -140,10 +166,83 @@ func (rwc *ReadWriteCloser) Close() error {
 	return nil
 }
 
-func (rwc *ReadWriteCloser) Report(info adaptive.CompressInfo) {
-	if value, ok := rwc.w.(adaptive.Reporter); ok {
-		value.Report(info)
-	} else {
-		panic("the writer does not implement adaptive.Reporter interface")
+type ReadWriteCloseReportFlusher struct {
+	r       io.Reader
+	w       interfaces.WriteFlusherReporter
+	closeFn func() error
+
+	closed bool
+	mu     sync.Mutex
+}
+
+// closeFn will be called only once
+func WrapReadWriteCloseReportFlusher(r io.Reader, w interfaces.WriteFlusherReporter, closeFn func() error) interfaces.ReadWriteCloseReportFlusher {
+	return &ReadWriteCloseReportFlusher{
+		r:       r,
+		w:       w,
+		closeFn: closeFn,
+		closed:  false,
 	}
+}
+
+type MockWriteFlusherReporter struct {
+	w io.Writer
+}
+
+func NewMockWriteFlusherReporter(w io.Writer) *MockWriteFlusherReporter {
+	return &MockWriteFlusherReporter{
+		w: w,
+	}
+}
+
+func (m *MockWriteFlusherReporter) Write(p []byte) (n int, err error) {
+	return m.w.Write(p)
+}
+
+func (m *MockWriteFlusherReporter) Flush() error {
+	return nil
+}
+
+func (m *MockWriteFlusherReporter) Report(info adaptive.CompressInfo) error {
+	return nil
+}
+
+func WrapReadWriteCloseReportFlusher2(rwc io.ReadWriteCloser) interfaces.ReadWriteCloseReportFlusher {
+	return &ReadWriteCloseReportFlusher{
+		r:       rwc,
+		w:       NewMockWriteFlusherReporter(rwc),
+		closeFn: rwc.Close,
+		closed:  false,
+	}
+}
+
+func (rwcrf *ReadWriteCloseReportFlusher) Read(p []byte) (n int, err error) {
+	return rwcrf.r.Read(p)
+}
+
+func (rwcrf *ReadWriteCloseReportFlusher) Write(p []byte) (n int, err error) {
+	return rwcrf.w.Write(p)
+}
+
+func (rwcrf *ReadWriteCloseReportFlusher) Close() error {
+	rwcrf.mu.Lock()
+	if rwcrf.closed {
+		rwcrf.mu.Unlock()
+		return nil
+	}
+	rwcrf.closed = true
+	rwcrf.mu.Unlock()
+
+	if rwcrf.closeFn != nil {
+		return rwcrf.closeFn()
+	}
+	return nil
+}
+
+func (rwcrf *ReadWriteCloseReportFlusher) Report(info adaptive.CompressInfo) error {
+	return rwcrf.w.Report(info)
+}
+
+func (rwcrf *ReadWriteCloseReportFlusher) Flush() error {
+	return rwcrf.w.Flush()
 }

@@ -11,7 +11,3 @@ type CompressInfo struct {
 }
 
 type ReportFunction func(CompressInfo)
-
-type Reporter interface {
-	Report(CompressInfo)
-}

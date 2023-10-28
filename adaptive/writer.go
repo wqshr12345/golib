@@ -165,9 +165,10 @@ func (w *Writer) Flush() error {
 	return w.err
 }
 
-func (w *Writer) Report(info CompressInfo) {
+func (w *Writer) Report(info CompressInfo) error {
 	// TODO(wangqian):Do more things.
 	w.compressInfo = append(w.compressInfo, info)
+	return nil
 }
 
 func (w *Writer) Close() error {
