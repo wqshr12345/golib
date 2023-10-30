@@ -112,7 +112,7 @@ func (r *Reader) fill() error {
 		CompressTime:   midTs - startTs,
 		TranportTime:   mid2Ts - midTs,
 		DecompressTime: endTs - mid2Ts,
-		CompressRatio:  float64(len(r.oBuf)) / float64(dataLen),
+		CompressRatio:  float64(dataLen) / float64(len(r.oBuf)),
 	}
 	r.reportFunc(compressInfo)
 	r.start = 0
