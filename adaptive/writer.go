@@ -41,7 +41,7 @@ const (
 	packageCompressTypeSize = 1
 	packageDataLenSize      = 4
 
-	maxOriginalDataSize = 65536
+	// maxOriginalDataSize = 65536
 
 	// temoparily is not used, because there is no reusable oBuf in reader.
 	maxCompressedDataSize = 76490
@@ -65,9 +65,9 @@ type Writer struct {
 }
 
 func NewWriter(w io.Writer, bufSize int) *Writer {
-	if bufSize > maxOriginalDataSize {
-		panic("lands: the buffer is larger than the maximum of snappy's compression data.")
-	}
+	// if bufSize > maxOriginalDataSize {
+	// 	panic("lands: the buffer is larger than the maximum of snappy's compression data.")
+	// }
 	return &Writer{
 		outW: w,
 		cmpr: snappy.NewCompressor(),
