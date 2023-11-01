@@ -21,12 +21,7 @@ import (
 
 	"github.com/wqshr12345/golib/compression"
 	"github.com/wqshr12345/golib/compression/snappy"
-)
-
-const (
-	compressTypeNone   = 0x00
-	compressTypeSnappy = 0x01
-	compressTypeZstd   = 0x02
+	"github.com/wqshr12345/golib/compression/zstd"
 )
 
 /*
@@ -54,7 +49,9 @@ type Writer struct {
 	// the data will be transported to outW.
 	outW io.Writer
 
-	cmpr compression.Compressor
+	cmprs map[uint8]compression.Compressor
+
+	cmprType uint8
 
 	err error
 
@@ -64,14 +61,20 @@ type Writer struct {
 	compressInfo []CompressInfo
 }
 
-func NewWriter(w io.Writer, bufSize int) *Writer {
+func NewWriter(w io.Writer, bufSize int, cmprType uint8) *Writer {
 	// if bufSize > maxOriginalDataSize {
 	// 	panic("lands: the buffer is larger than the maximum of snappy's compression data.")
 	// }
+
+	cmprs := make(map[uint8]compression.Compressor)
+	cmprs[CompressTypeSnappy] = snappy.NewCompressor()
+	cmprs[CompressTypeZstd] = zstd.NewCompressor()
+
 	return &Writer{
-		outW: w,
-		cmpr: snappy.NewCompressor(),
-		iBuf: make([]byte, 0, bufSize),
+		outW:     w,
+		cmprs:    cmprs,
+		cmprType: cmprType,
+		iBuf:     make([]byte, 0, bufSize),
 	}
 }
 
@@ -112,10 +115,10 @@ func (w *Writer) write(p []byte) (nRet int, errRet error) {
 
 	// TODO(wangqian): use a oBuf to avoid memory allocate.
 	startTs := time.Now().UnixNano()
-	compressedData := w.cmpr.Compress(p)
+	compressedData := w.cmprs[w.cmprType].Compress(p)
 	midTs := time.Now().UnixNano()
 	dataLen := len(compressedData)
-	compressType := uint8(compressTypeSnappy)
+	compressType := w.cmprType
 
 	oBuf[0] = compressType
 	oBuf[1] = uint8(startTs >> 0)

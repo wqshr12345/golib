@@ -113,9 +113,9 @@ func WithCompressionFromPool(rwc io.ReadWriteCloser) (out io.ReadWriteCloser, re
 	return
 }
 
-func WithAdaptiveEncoding(rwc io.ReadWriteCloser, reportFunc adaptive.ReportFunction, bufSize int) (out interfaces.ReadWriteCloseReportFlusher, recycle func()) {
+func WithAdaptiveEncoding(rwc io.ReadWriteCloser, reportFunc adaptive.ReportFunction, bufSize int, compressType uint8) (out interfaces.ReadWriteCloseReportFlusher, recycle func()) {
 	sr := adaptive.NewReader(rwc, reportFunc)
-	sw := adaptive.NewWriter(rwc, bufSize)
+	sw := adaptive.NewWriter(rwc, bufSize, compressType)
 	out = WrapReadWriteCloseReportFlusher(sr, sw, func() error {
 		err := sw.Close()
 		err = rwc.Close()

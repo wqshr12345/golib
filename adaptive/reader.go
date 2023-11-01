@@ -21,12 +21,16 @@ import (
 
 	"github.com/wqshr12345/golib/compression"
 	"github.com/wqshr12345/golib/compression/snappy"
+	"github.com/wqshr12345/golib/compression/zstd"
 )
 
 func NewReader(r io.Reader, reportFunc ReportFunction) *Reader {
+	cmprs := make(map[uint8]compression.Decompressor)
+	cmprs[CompressTypeSnappy] = snappy.NewDecompressor()
+	cmprs[CompressTypeZstd] = zstd.NewDecompressor()
 	return &Reader{
 		inR:        r,
-		cmpr:       snappy.NewDecompressor(),
+		cmprs:      cmprs,
 		reportFunc: reportFunc,
 		pkgID:      0,
 	}
@@ -36,7 +40,7 @@ type Reader struct {
 	// the data will be transported from inR.
 	inR io.Reader
 
-	cmpr compression.Decompressor
+	cmprs map[uint8]compression.Decompressor
 
 	err error
 
@@ -103,7 +107,7 @@ func (r *Reader) fill() error {
 	// TODO(wangqian): Use compressType to choose different decompressor.
 	// TODO(wangqian): Should we avoid memory allocate every times?
 	mid2Ts := time.Now().UnixNano()
-	r.oBuf = r.cmpr.Decompress(nil, compressedData)
+	r.oBuf = r.cmprs[uint8(compressType)].Decompress(nil, compressedData)
 	endTs := time.Now().UnixNano()
 	compressInfo := CompressInfo{
 		PkgId:          r.pkgID,

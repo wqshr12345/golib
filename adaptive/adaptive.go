@@ -11,3 +11,9 @@ type CompressInfo struct {
 }
 
 type ReportFunction func(CompressInfo)
+
+const (
+	CompressTypeNone   = uint8(0)
+	CompressTypeSnappy = uint8(1)
+	CompressTypeZstd   = uint8(2)
+)
