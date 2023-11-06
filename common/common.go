@@ -1,4 +1,4 @@
-package adaptive
+package common
 
 type CompressInfo struct {
 	PkgId          int

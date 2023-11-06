@@ -19,15 +19,16 @@ import (
 	"io"
 	"time"
 
+	"github.com/wqshr12345/golib/common"
 	"github.com/wqshr12345/golib/compression"
 	"github.com/wqshr12345/golib/compression/snappy"
 	"github.com/wqshr12345/golib/compression/zstd"
 )
 
-func NewReader(r io.Reader, reportFunc ReportFunction) *Reader {
+func NewReader(r io.Reader, reportFunc common.ReportFunction) *Reader {
 	cmprs := make(map[uint8]compression.Decompressor)
-	cmprs[CompressTypeSnappy] = snappy.NewDecompressor()
-	cmprs[CompressTypeZstd] = zstd.NewDecompressor()
+	cmprs[common.CompressTypeSnappy] = snappy.NewDecompressor()
+	cmprs[common.CompressTypeZstd] = zstd.NewDecompressor()
 	return &Reader{
 		inR:        r,
 		cmprs:      cmprs,
@@ -50,7 +51,7 @@ type Reader struct {
 	// oBuf[start:] represent valid data.
 	start int
 
-	reportFunc ReportFunction
+	reportFunc common.ReportFunction
 
 	pkgID int
 }
@@ -109,7 +110,7 @@ func (r *Reader) fill() error {
 	mid2Ts := time.Now().UnixNano()
 	r.oBuf = r.cmprs[uint8(compressType)].Decompress(nil, compressedData)
 	endTs := time.Now().UnixNano()
-	compressInfo := CompressInfo{
+	compressInfo := common.CompressInfo{
 		PkgId:          r.pkgID,
 		DataLen:        len(r.oBuf),
 		CompressType:   int(compressType),

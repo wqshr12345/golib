@@ -3,11 +3,11 @@ package interfaces
 import (
 	"io"
 
-	"github.com/wqshr12345/golib/adaptive"
+	"github.com/wqshr12345/golib/common"
 )
 
 type Reporter interface {
-	Report(adaptive.CompressInfo) error
+	Report(common.CompressInfo) error
 }
 
 type ReadReporter interface {
@@ -17,6 +17,11 @@ type ReadReporter interface {
 
 type Flusher interface {
 	Flush() error
+}
+
+type WriteFlusher interface {
+	io.Writer
+	Flusher
 }
 
 type WriteFlusherReporter interface {
@@ -29,4 +34,13 @@ type ReadWriteCloseReportFlusher interface {
 	io.Reader
 	WriteFlusherReporter
 	io.Closer
+}
+
+type WriterFlusher2 interface {
+	Write2(p []byte) (n int, cmprInfo common.CompressInfo, isNil bool, err error)
+	Flush2() (cmprInfo common.CompressInfo, err error)
+}
+
+type Reader2 interface {
+	Read2(p []byte) (n int, cmprInfo common.CompressInfo, isNil bool, err error)
 }

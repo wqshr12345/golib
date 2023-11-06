@@ -1,4 +1,4 @@
-// Copyright 2019 wqshr12345, wqshr12345@gmail.com
+// Copyright 2023 wqshr12345, wqshr12345@gmail.com
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/wqshr12345/golib/common"
 	"github.com/wqshr12345/golib/compression"
 	"github.com/wqshr12345/golib/compression/snappy"
 	"github.com/wqshr12345/golib/compression/zstd"
@@ -58,7 +59,7 @@ type Writer struct {
 	// iBuf is a buffer for the incoming unadaptiveencoded data.If it's nil, we will not buffer the incoming data.
 	iBuf []byte
 
-	compressInfo []CompressInfo
+	compressInfo []common.CompressInfo
 }
 
 func NewWriter(w io.Writer, bufSize int, cmprType uint8) *Writer {
@@ -67,8 +68,8 @@ func NewWriter(w io.Writer, bufSize int, cmprType uint8) *Writer {
 	// }
 
 	cmprs := make(map[uint8]compression.Compressor)
-	cmprs[CompressTypeSnappy] = snappy.NewCompressor()
-	cmprs[CompressTypeZstd] = zstd.NewCompressor()
+	cmprs[common.CompressTypeSnappy] = snappy.NewCompressor()
+	cmprs[common.CompressTypeZstd] = zstd.NewCompressor()
 
 	return &Writer{
 		outW:     w,
@@ -168,7 +169,7 @@ func (w *Writer) Flush() error {
 	return w.err
 }
 
-func (w *Writer) Report(info CompressInfo) error {
+func (w *Writer) Report(info common.CompressInfo) error {
 	// TODO(wangqian):Do more things.
 	w.compressInfo = append(w.compressInfo, info)
 	return nil

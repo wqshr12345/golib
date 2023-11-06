@@ -19,8 +19,10 @@ import (
 	"sync"
 
 	"github.com/golang/snappy"
+	"github.com/klauspost/compress/zstd"
 	"github.com/wqshr12345/golib/adaptive"
 	"github.com/wqshr12345/golib/asyncio"
+	"github.com/wqshr12345/golib/common"
 	"github.com/wqshr12345/golib/crypto"
 	"github.com/wqshr12345/golib/interfaces"
 	"github.com/wqshr12345/golib/pool"
@@ -113,7 +115,18 @@ func WithCompressionFromPool(rwc io.ReadWriteCloser) (out io.ReadWriteCloser, re
 	return
 }
 
-func WithAdaptiveEncoding(rwc io.ReadWriteCloser, reportFunc adaptive.ReportFunction, bufSize int, compressType uint8) (out interfaces.ReadWriteCloseReportFlusher, recycle func()) {
+func WithCompression2(rwc io.ReadWriteCloser, compressType uint8) (out interfaces.ReadWriteCloseReportFlusher) {
+	sr, _ := zstd.NewReader(rwc)
+	sw, _ := zstd.NewWriter(rwc)
+	return WrapReadWriteCloseReportFlusher3(sr, sw, func() error {
+		err := sw.Close()
+		err = rwc.Close()
+		return err
+	})
+}
+
+// use normal compression interface.
+func WithAdaptiveEncoding(rwc io.ReadWriteCloser, reportFunc common.ReportFunction, bufSize int, compressType uint8) (out interfaces.ReadWriteCloseReportFlusher, recycle func()) {
 	sr := adaptive.NewReader(rwc, reportFunc)
 	sw := adaptive.NewWriter(rwc, bufSize, compressType)
 	out = WrapReadWriteCloseReportFlusher(sr, sw, func() error {
@@ -185,6 +198,28 @@ func WrapReadWriteCloseReportFlusher(r io.Reader, w interfaces.WriteFlusherRepor
 	}
 }
 
+type MockWriteFlusherReporter2 struct {
+	w interfaces.WriteFlusher
+}
+
+func NewMockWriteFlusherReporter2(w interfaces.WriteFlusher) *MockWriteFlusherReporter2 {
+	return &MockWriteFlusherReporter2{
+		w: w,
+	}
+}
+
+func (m *MockWriteFlusherReporter2) Write(p []byte) (n int, err error) {
+	return m.w.Write(p)
+}
+
+func (m *MockWriteFlusherReporter2) Flush() error {
+	return m.w.Flush()
+}
+
+func (m *MockWriteFlusherReporter2) Report(info common.CompressInfo) error {
+	return nil
+}
+
 type MockWriteFlusherReporter struct {
 	w io.Writer
 }
@@ -203,7 +238,7 @@ func (m *MockWriteFlusherReporter) Flush() error {
 	return nil
 }
 
-func (m *MockWriteFlusherReporter) Report(info adaptive.CompressInfo) error {
+func (m *MockWriteFlusherReporter) Report(info common.CompressInfo) error {
 	return nil
 }
 
@@ -212,6 +247,15 @@ func WrapReadWriteCloseReportFlusher2(rwc io.ReadWriteCloser) interfaces.ReadWri
 		r:       rwc,
 		w:       NewMockWriteFlusherReporter(rwc),
 		closeFn: rwc.Close,
+		closed:  false,
+	}
+}
+
+func WrapReadWriteCloseReportFlusher3(r io.Reader, w interfaces.WriteFlusher, closeFn func() error) interfaces.ReadWriteCloseReportFlusher {
+	return &ReadWriteCloseReportFlusher{
+		r:       r,
+		w:       NewMockWriteFlusherReporter2(w),
+		closeFn: closeFn,
 		closed:  false,
 	}
 }
@@ -239,7 +283,7 @@ func (rwcrf *ReadWriteCloseReportFlusher) Close() error {
 	return nil
 }
 
-func (rwcrf *ReadWriteCloseReportFlusher) Report(info adaptive.CompressInfo) error {
+func (rwcrf *ReadWriteCloseReportFlusher) Report(info common.CompressInfo) error {
 	return rwcrf.w.Report(info)
 }
 
