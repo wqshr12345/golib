@@ -17,12 +17,14 @@ package adaptive
 import (
 	"errors"
 	"io"
+	"os"
 	"time"
 
 	"github.com/wqshr12345/golib/common"
 	"github.com/wqshr12345/golib/compression"
 	"github.com/wqshr12345/golib/compression/snappy"
 	"github.com/wqshr12345/golib/compression/zstd"
+	"github.com/wqshr12345/golib/statistics"
 )
 
 /*
@@ -68,8 +70,8 @@ func NewWriter(w io.Writer, bufSize int, cmprType uint8) *Writer {
 	// }
 
 	cmprs := make(map[uint8]compression.Compressor)
-	cmprs[common.CompressTypeSnappy] = snappy.NewCompressor()
-	cmprs[common.CompressTypeZstd] = zstd.NewCompressor()
+	cmprs[common.CompressTypeSnappy] = statistics.NewCompressWrap(snappy.NewCompressor(), os.Stdout)
+	cmprs[common.CompressTypeZstd] = statistics.NewCompressWrap(zstd.NewCompressor(), os.Stdout)
 
 	return &Writer{
 		outW:     w,
