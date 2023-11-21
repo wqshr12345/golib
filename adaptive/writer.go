@@ -27,6 +27,7 @@ import (
 	"github.com/wqshr12345/golib/statistics"
 )
 
+// 使用自定义格式+非流式压缩(块式压缩)
 /*
 Adaptive Encoding Format：
 | compress_type(1 byte) | timestamp(8 bytes) | data_length(4 bytes) | (compressed )data(data_length bytes) |

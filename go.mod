@@ -7,10 +7,10 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatedier/kcp-go v2.0.4-0.20190803094908-fe8645b0a904+incompatible
 	github.com/golang/snappy v0.0.4
-	github.com/klauspost/compress v1.17.2
 	github.com/klauspost/reedsolomon v1.9.15 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/stretchr/testify v1.6.1
+	github.com/wqshr12345/compress v0.0.2
 	golang.org/x/crypto v0.4.0
 	golang.org/x/net v0.7.0
 )

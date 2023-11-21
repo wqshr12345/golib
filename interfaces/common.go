@@ -19,6 +19,12 @@ type Flusher interface {
 	Flush() error
 }
 
+type WriteFlushCloser interface {
+	io.Writer
+	Flusher
+	io.Closer
+}
+
 type WriteFlusher interface {
 	io.Writer
 	Flusher
@@ -43,4 +49,26 @@ type WriterFlusher2 interface {
 
 type Reader2 interface {
 	Read2(p []byte) (n int, cmprInfo common.CompressInfo, isNil bool, err error)
+}
+
+type MockWriteCloserFlusher struct {
+	w io.WriteCloser
+}
+
+func NewMockWriteCloserFlusher(w io.WriteCloser) *MockWriteCloserFlusher {
+	return &MockWriteCloserFlusher{
+		w: w,
+	}
+}
+
+func (m *MockWriteCloserFlusher) Write(p []byte) (n int, err error) {
+	return m.w.Write(p)
+}
+
+func (m *MockWriteCloserFlusher) Close() error {
+	return m.w.Close()
+}
+
+func (m *MockWriteCloserFlusher) Flush() error {
+	return nil
 }
