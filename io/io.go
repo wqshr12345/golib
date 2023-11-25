@@ -19,8 +19,8 @@ import (
 	"sync"
 
 	"github.com/golang/snappy"
-	"github.com/klauspost/compress/zstd"
 	"github.com/wqshr12345/golib/adaptive"
+	"github.com/wqshr12345/golib/adaptive3"
 	"github.com/wqshr12345/golib/asyncio"
 	"github.com/wqshr12345/golib/common"
 	"github.com/wqshr12345/golib/crypto"
@@ -115,9 +115,9 @@ func WithCompressionFromPool(rwc io.ReadWriteCloser) (out io.ReadWriteCloser, re
 	return
 }
 
-func WithCompression2(rwc io.ReadWriteCloser, compressType uint8) (out interfaces.ReadWriteCloseReportFlusher) {
-	sr, _ := zstd.NewReader(rwc)
-	sw, _ := zstd.NewWriter(rwc)
+func WithAdaptiveEncoding3(rwc io.ReadWriteCloser, compressType uint8) (out interfaces.ReadWriteCloseReportFlusher) {
+	sr := adaptive3.NewReader(rwc, compressType)
+	sw := adaptive3.NewWriter(rwc, compressType)
 	return WrapReadWriteCloseReportFlusher3(sr, sw, func() error {
 		err := sw.Close()
 		err = rwc.Close()
