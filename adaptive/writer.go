@@ -114,7 +114,9 @@ func (w *Writer) write(p []byte) (nRet int, errRet error) {
 	if w.err != nil {
 		return 0, w.err
 	}
-
+	if p == nil || len(p) == 0 {
+		return 0, nil
+	}
 	oBuf := make([]byte, packageHeaderSize)
 
 	// TODO(wangqian): use a oBuf to avoid memory allocate.
