@@ -20,6 +20,7 @@ import (
 
 	"github.com/golang/snappy"
 	"github.com/wqshr12345/golib/adaptive"
+	"github.com/wqshr12345/golib/adaptive2"
 	"github.com/wqshr12345/golib/adaptive3"
 	"github.com/wqshr12345/golib/asyncio"
 	"github.com/wqshr12345/golib/common"
@@ -129,6 +130,18 @@ func WithAdaptiveEncoding3(rwc io.ReadWriteCloser, compressType uint8) (out inte
 func WithAdaptiveEncoding(rwc io.ReadWriteCloser, reportFunc common.ReportFunction, bufSize int, compressType uint8) (out interfaces.ReadWriteCloseReportFlusher, recycle func()) {
 	sr := adaptive.NewReader(rwc, reportFunc)
 	sw := adaptive.NewWriter(rwc, bufSize, compressType)
+	out = WrapReadWriteCloseReportFlusher(sr, sw, func() error {
+		err := sw.Close()
+		err = rwc.Close()
+		return err
+	})
+	return
+}
+
+// use stream compression interface.
+func WithAdaptiveEncoding2(rwc io.ReadWriteCloser, reportFunc common.ReportFunction, compressType uint8) (out interfaces.ReadWriteCloseReportFlusher, recycle func()) {
+	sr := adaptive2.NewReader(rwc, reportFunc)
+	sw := adaptive2.NewWriter(rwc, compressType)
 	out = WrapReadWriteCloseReportFlusher(sr, sw, func() error {
 		err := sw.Close()
 		err = rwc.Close()
