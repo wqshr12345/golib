@@ -1,39 +1,17 @@
-// Copyright 2023 wqshr12345, wqshr12345@gmail.com
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package adaptive
 
 import (
-	"errors"
+	"encoding/binary"
 	"io"
-	"time"
 
 	"github.com/wqshr12345/golib/common"
-	"github.com/wqshr12345/golib/compression"
-	"github.com/wqshr12345/golib/compression/snappy"
-	"github.com/wqshr12345/golib/compression/zstd"
 )
 
-func NewReader(r io.Reader, reportFunc common.ReportFunction) *Reader {
-	cmprs := make(map[uint8]compression.Decompressor)
-	cmprs[common.CompressTypeSnappy] = snappy.NewDecompressor()
-	cmprs[common.CompressTypeZstd] = zstd.NewDecompressor()
+func NewReader(r io.Reader) *Reader { // stat *statistics.TcpStatistic
 	return &Reader{
-		inR:        r,
-		cmprs:      cmprs,
-		reportFunc: reportFunc,
-		pkgID:      0,
+		inR:   r,
+		pkgID: 0,
+		// stat:  stat,
 	}
 }
 
@@ -41,7 +19,7 @@ type Reader struct {
 	// the data will be transported from inR.
 	inR io.Reader
 
-	cmprs map[uint8]compression.Decompressor
+	dcmpr common.Decompressor
 
 	err error
 
@@ -51,9 +29,11 @@ type Reader struct {
 	// oBuf[start:] represent valid data.
 	start int
 
-	reportFunc common.ReportFunction
+	// reportFunc common.ReportFunction
 
 	pkgID int
+
+	// stat *statistics.TcpStatistic
 }
 
 func (r *Reader) Read(p []byte) (int, error) {
@@ -73,7 +53,8 @@ func (r *Reader) Read(p []byte) (int, error) {
 func (r *Reader) readFull(p []byte, allowEOF bool) (ok bool) {
 	if _, r.err = io.ReadFull(r.inR, p); r.err != nil {
 		if r.err == io.ErrUnexpectedEOF || (r.err == io.EOF && !allowEOF) {
-			r.err = errors.New("LANDS: corrupt input")
+			// r.err = errors.New("LANDS: corrupt input")
+			panic("LANDS: corrupt input")
 		}
 		return false
 	}
@@ -93,34 +74,39 @@ func (r *Reader) fill() error {
 		return r.err
 	}
 	compressType := iBuf[0]
-	startTs := int64(iBuf[1]) | int64(iBuf[2])<<8 | int64(iBuf[3])<<16 | int64(iBuf[4])<<24 | int64(iBuf[5])<<32 | int64(iBuf[6])<<40 | int64(iBuf[7])<<48 | int64(iBuf[8])<<56
-	midTs := int64(iBuf[9]) | int64(iBuf[10])<<8 | int64(iBuf[11])<<16 | int64(iBuf[12])<<24 | int64(iBuf[13])<<32 | int64(iBuf[14])<<40 | int64(iBuf[15])<<48 | int64(iBuf[16])<<56
-	dataLen := int(iBuf[17]) | int(iBuf[18])<<8 | int(iBuf[19])<<16 | int(iBuf[20])<<24
 
+	dataLen := int(binary.LittleEndian.Uint32(iBuf[17:21]))
+	rawDataLen := int(binary.LittleEndian.Uint32(iBuf[21:]))
+
+	// TODO(wangqian): Should we avoid memory allocate every times?
 	compressedData := make([]byte, dataLen)
 
 	// 2. read compressed data.
+	// startTime := time.Now()
+
 	if !r.readFull(compressedData, false) {
 		return r.err
 	}
+	// r.stat.AddReadsBandWidth(dataLen, time.Since(startTime))
 
 	// 3. decompress compressed data.
-	// TODO(wangqian): Use compressType to choose different decompressor.
-	// TODO(wangqian): Should we avoid memory allocate every times?
-	mid2Ts := time.Now().UnixNano()
-	r.oBuf = r.cmprs[uint8(compressType)].Decompress(nil, compressedData)
-	endTs := time.Now().UnixNano()
-	compressInfo := common.CompressInfo{
-		PkgId:          r.pkgID,
-		DataLen:        len(r.oBuf),
-		CompressType:   int(compressType),
-		CompressTime:   midTs - startTs,
-		TranportTime:   mid2Ts - midTs,
-		DecompressTime: endTs - mid2Ts,
-		CompressRatio:  float64(dataLen) / float64(len(r.oBuf)),
+	r.dcmpr = NewDecompressor(compressType)
+
+	// mid2Ts := time.Now().UnixNano()
+
+	// Note(wangqian): 哥们儿真的服了。有的接口要求传的buflen为0，有的要求len和cap一样
+	if compressType == common.CompressTypeLz4 || compressType == common.CompressTypeFlate || compressType == common.CompressTypeBrotli {
+		r.oBuf = make([]byte, rawDataLen)
+	} else {
+		r.oBuf = make([]byte, 0, rawDataLen)
 	}
-	r.reportFunc(compressInfo)
+
+	// startTime = time.Now()
+	r.oBuf = r.dcmpr.Decompress(r.oBuf, compressedData)
+	// r.stat.AddDecompressionBandWidth(dataLen, rawDataLen, time.Since(startTime))
+
 	r.start = 0
 	r.pkgID += 1
+
 	return nil
 }

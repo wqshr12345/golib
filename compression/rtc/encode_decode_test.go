@@ -1,4 +1,4 @@
-package column_test
+package rtc_test
 
 import (
 	"fmt"
@@ -6,8 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wqshr12345/golib/compression/column"
-	"github.com/wqshr12345/golib/compression/column/common"
+	"github.com/wqshr12345/golib/compression/rtc/common"
 	"github.com/wqshr12345/golib/compression/zstd"
 )
 
@@ -26,12 +25,12 @@ func TestEncoder(t *testing.T) {
 	fmt.Println("zstd压缩后文件长度:", len(zstdCompressedData))
 
 	midTime := time.Now()
-	compressor := column.NewCompressor()
+	compressor := rtc.NewCompressor()
 	eventWrapperMetas := make([]common.EventWrapperMeta, 0)
 	compressedData := compressor.Compress(fileData, &eventWrapperMetas)
 	fmt.Println("文件长度:", len(fileData))
 	fmt.Println("压缩后文件长度:", len(compressedData))
-	decompressor := column.NewDecompressor()
+	decompressor := rtc.NewDecompressor()
 	decompressedData := decompressor.Decompress(nil, compressedData, eventWrapperMetas, fileData)
 	// 验证解压后的数据是否和原始数据一致
 	for i := 0; i < len(fileData); i++ {

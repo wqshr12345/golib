@@ -1,7 +1,7 @@
 package zstd
 
 import (
-	"github.com/wqshr12345/compress/zstd"
+	"github.com/klauspost/compress/zstd"
 )
 
 func NewDecompressor() *ZstdDecompressor {

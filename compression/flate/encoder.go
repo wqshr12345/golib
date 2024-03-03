@@ -1,14 +1,22 @@
 package flate
 
-// import "compress/flate"
+import (
+	"bytes"
 
-// type FlateCmpressor struct {
-// 	encoder *flate.Reader
-// }
+	"compress/flate"
+)
 
-// func NewDecompressor() *FlateCmpressor {
-// 	encoder, _ := flate.NewWriter(nil, flate.DefaultCompression)
-// 	return &FlateCmpressor{
-// 		encoder: encoder,
-// 	}
-// }
+func NewCompressor() *FlateCompressor {
+	return &FlateCompressor{}
+}
+
+type FlateCompressor struct {
+}
+
+func (c *FlateCompressor) Compress(src []byte) []byte {
+	var buf bytes.Buffer
+	w, _ := flate.NewWriter(&buf, flate.DefaultCompression)
+	w.Write(src)
+	w.Close()
+	return buf.Bytes()
+}
