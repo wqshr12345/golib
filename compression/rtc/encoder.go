@@ -2,7 +2,6 @@ package rtc
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"time"
 
@@ -42,6 +41,7 @@ func (c *RtcCompressor) Compress(src []byte) []byte { //, testMeta *[]common.Eve
 		totalEvents += 1
 		// 1. 反序列化数据
 		startTime := time.Now()
+		// fmt.Println("start:", start, "total:", total, "totalEvents:", totalEvents)
 		offset, wrapper, err := c.deserialize(src[start:])
 		deserializeTime := time.Since(startTime).Nanoseconds()
 		totalDeserTime += deserializeTime
@@ -154,7 +154,7 @@ func (c *RtcCompressor) deserialize(src []byte) (offset int, wrapper event.Event
 	// TODO(wangqian)：这里基于的假设是——一个body中包含了一个完整的event，而不是两个body包含一个event...
 	if src[4] != 0x00 {
 		offset = 3 + 1 + bodylen
-		return offset, wrapper, errors.New("not a ok event(maybe handshake or err event")
+		return offset, wrapper, nil //errors.New("not a ok event(maybe handshake or err event")
 	}
 	wrapper.Event = c.deserializeEvent(src[5 : 5+bodylen-1])
 

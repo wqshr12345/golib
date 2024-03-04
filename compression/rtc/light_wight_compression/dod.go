@@ -2,9 +2,9 @@ package lightwightcompression
 
 import (
 	"encoding/binary"
-	"fmt"
+	"time"
 
-	"github.com/wqshr12345/golib/compression/column/common"
+	"github.com/wqshr12345/golib/compression/rtc/common"
 )
 
 // 算法源自Gorrila论文。代码参考 https://github.com/keisku/gorilla/
@@ -26,9 +26,12 @@ type DodCompressor struct {
 	buf []byte
 
 	rowNumbers uint32
+
+	name string
+	perf *common.RtcPerf
 }
 
-func NewDodCompressor() *DodCompressor {
+func NewDodCompressor(name string, perf *common.RtcPerf) *DodCompressor {
 	return &DodCompressor{
 		// 默认压缩timestamp，所以这里 dataLenType是DataLenFixed 且 dataLen是4。
 		dataLenType: common.DataLenFixed,
@@ -42,10 +45,18 @@ func NewDodCompressor() *DodCompressor {
 		buf: make([]byte, 1, 1),
 
 		rowNumbers: 0,
+
+		name: name,
+
+		perf: perf,
 	}
 }
 
 func (d *DodCompressor) Compress(src []byte) {
+	var startTime int64
+	if common.Perf {
+		startTime = time.Now().UnixNano()
+	}
 	d.rowNumbers += 1
 	// 1. 获得当前timestamp
 	timestamp := int32(binary.LittleEndian.Uint32(src))
@@ -106,6 +117,9 @@ func (d *DodCompressor) Compress(src []byte) {
 			d.writeInt64Bits(dod, 32)
 			// d.writeBits2(dod, 32, true)
 		}
+	}
+	if common.Perf {
+		d.perf.AddCpTime(d.name, time.Now().UnixNano()-startTime)
 	}
 }
 
@@ -193,6 +207,11 @@ func (d *DodCompressor) writeInt64Bits(i int64, nbits uint) {
 }
 
 func (d *DodCompressor) Finalize(out *[]byte, offset int) int {
+	var startTime int64
+	if common.Perf {
+		startTime = time.Now().UnixNano()
+	}
+
 	// 1. column foramt.
 	offset = d.finalizeColumnFormat(out, offset, d.dataLenType)
 
@@ -200,8 +219,9 @@ func (d *DodCompressor) Finalize(out *[]byte, offset int) int {
 
 	copy((*out)[offset:], d.buf)
 	offset += len(d.buf)
-	fmt.Println("本压缩 压缩前总长度：", d.rowNumbers*uint32(d.dataLen))
-	fmt.Println("本压缩 压缩后总长度：", len(d.buf))
+	if common.Perf {
+		d.perf.AddFTime(d.name, time.Now().UnixNano()-startTime)
+	}
 	return offset
 }
 

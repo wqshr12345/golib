@@ -1,9 +1,9 @@
 package allcompressors
 
 import (
-	"Iridium/compression/compression_reader_writer/rtc/common"
+	"github.com/wqshr12345/golib/compression/rtc/common"
 
-	lwcompression "Iridium/compression/compression_reader_writer/rtc/light_wight_compression"
+	lwcompression "github.com/wqshr12345/golib/compression/rtc/light_wight_compression"
 )
 
 // 生命周期仅仅和一次Compress()的调用相关
@@ -20,6 +20,7 @@ type AllCompressors struct {
 	TableMapCmpr           *TableMapCompressors
 	WriteRowsCmpr          *WriteRowsCompressors
 	XidCmpr                *XidCompressors
+	StopCmpr               *StopCompressors
 
 	// 生命周期和一次Compress相同，从TableMap中
 	TableInforMap map[uint64]*common.TableInfo
@@ -38,6 +39,7 @@ func NewAllCompressors() *AllCompressors {
 		TableMapCmpr:           NewTableMapCompressors(),
 		WriteRowsCmpr:          NewWriteRowsCompressors(),
 		XidCmpr:                NewXidCompressors(),
+		StopCmpr:               NewStopCompressors(),
 		TableInforMap:          make(map[uint64]*common.TableInfo),
 	}
 }
@@ -54,6 +56,7 @@ func (a *AllCompressors) Reset() {
 	a.TableMapCmpr = NewTableMapCompressors()
 	a.WriteRowsCmpr = NewWriteRowsCompressors()
 	a.XidCmpr = NewXidCompressors()
+	a.StopCmpr = NewStopCompressors()
 }
 
 type EventWrapperCompressors struct {
@@ -122,7 +125,6 @@ func NewFormatDescCompressors() *FormatDescCompressors {
 		AllCmpr:           lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenVariable, 0, "formatdesc.all", common.RtcPerfs),
 	}
 }
-
 
 type TransactionPayloadCompressors struct {
 	AllCmpr *lwcompression.ZstdCompressor
@@ -201,6 +203,7 @@ func NewTableMapCompressors() *TableMapCompressors {
 		TableIdCmpr:   lwcompression.NewRleCompressor(6, "tablemap.tableid", common.RtcPerfs),
 		NoUsedCmpr:    lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenFixed, 2, "tablemap.noused", common.RtcPerfs),
 		DbNameLenCmpr: lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenFixed, 1, "tablemap.dbnamelen", common.RtcPerfs),
+		// DbNameCmpr:    lwcompression.NewNoCompressor2(common.DataLenVariable, 1, "tablemap.dbname", common.RtcPerfs),
 		DbNameCmpr:    lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenVariable, 0, "tablemap.dbname", common.RtcPerfs),
 		TableInfoCmpr: lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenVariable, 0, "tablemap.tableinfo", common.RtcPerfs),
 		AllCmpr:       lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenVariable, 0, "tablemap.all", common.RtcPerfs),
@@ -226,4 +229,35 @@ func NewWriteRowsCompressors() *WriteRowsCompressors {
 		TableIdCmpr:         lwcompression.NewRleCompressor(6, "writerows.tableid", common.RtcPerfs),
 		ReservedCmpr:        lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenFixed, 2, "writerows.reserved", common.RtcPerfs),
 		ExtraInfoLenCmpr:    lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenFixed, 2, "writerows.extrainfolen", common.RtcPerfs),
-		ExtraInfoCmpr:       lwcompression.NewZstdCompressor(common.ZstdCompress
+		ExtraInfoCmpr:       lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenVariable, 0, "writerows.extrainfo", common.RtcPerfs),
+		ColumnNumsCmpr:      lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenFixed, 2, "writerows.columnnums", common.RtcPerfs),
+		IncludedColumnsCmpr: lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenFixed, 2, "writerows.includedcolumns", common.RtcPerfs),
+		NullColumnsCmpr:     lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenFixed, 2, "writerows.nullcolumns", common.RtcPerfs),
+		RowsCmpr:            lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenVariable, 9, "writerows.rows", common.RtcPerfs),
+		Rows2Cmpr:           NewRow2Compressor(),
+		CheckSumCmpr:        lwcompression.NewNoCompressor2(common.DataLenFixed, 4, "writerows.checksum", common.RtcPerfs),
+		AllCmpr:             lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenVariable, 0, "writerows.all", common.RtcPerfs),
+	}
+}
+
+type XidCompressors struct {
+	XidCmpr *lwcompression.NoCompressor
+	AllCmpr *lwcompression.ZstdCompressor
+}
+
+func NewXidCompressors() *XidCompressors {
+	return &XidCompressors{
+		XidCmpr: lwcompression.NewNoCompressor(),
+		AllCmpr: lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenVariable, 12, "xid.all", common.RtcPerfs),
+	}
+}
+
+type StopCompressors struct {
+	AllCmpr *lwcompression.NoCompressor
+}
+
+func NewStopCompressors() *StopCompressors {
+	return &StopCompressors{
+		AllCmpr: lwcompression.NewNoCompressor(),
+	}
+}

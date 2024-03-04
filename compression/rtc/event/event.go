@@ -17,9 +17,7 @@ func (e *EventWrapper) ToString() string {
 
 	bodyLen := make([]byte, len(e.BodyLen)+1)
 	copy(bodyLen, e.BodyLen)
-
 	bodyLen[len(e.BodyLen)] = 0x00
-
 	return "bodylen" + fmt.Sprint(binary.LittleEndian.Uint32(e.BodyLen)) + "seq num" + string(e.SequenceNumber)
 }
 
@@ -29,6 +27,7 @@ type Event struct {
 	// Header []byte
 	// Data []byte
 }
+
 type EventHeader struct {
 	Timestamp []byte // 4 bytes
 
@@ -96,4 +95,6 @@ const (
 	MARIADB_WRITE_ROWS_COMPRESSED_EVENT_V1
 	MARIADB_UPDATE_ROWS_COMPRESSED_EVENT_V1
 	MARIADB_DELETE_ROWS_COMPRESSED_EVENT_V1
+
+	ALL_TYPES_EVENT
 )

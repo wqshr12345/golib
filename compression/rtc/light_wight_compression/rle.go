@@ -3,8 +3,9 @@ package lightwightcompression
 import (
 	"encoding/binary"
 	"reflect"
+	"time"
 
-	"github.com/wqshr12345/golib/compression/column/common"
+	"github.com/wqshr12345/golib/compression/rtc/common"
 )
 
 type RleCompressor struct {
@@ -18,11 +19,14 @@ type RleCompressor struct {
 	lastData []byte
 	length   int
 
-	buf        []byte
+	buf        []byte // bytes will be copy to out.
 	rowNumbers uint32
+
+	name string
+	perf *common.RtcPerf
 }
 
-func NewRleCompressor(dataLen int) *RleCompressor {
+func NewRleCompressor(dataLen int, name string, perf *common.RtcPerf) *RleCompressor {
 	return &RleCompressor{
 		datas:       make([][]byte, 0),
 		dataLen:     dataLen,
@@ -31,10 +35,16 @@ func NewRleCompressor(dataLen int) *RleCompressor {
 		lastData:    nil,
 		firstCalled: true,
 		length:      0,
+		name:        name,
+		perf:        perf,
 	}
 }
 
 func (c *RleCompressor) Compress(src []byte) {
+	var startTime int64
+	if common.Perf {
+		startTime = time.Now().UnixNano()
+	}
 	c.rowNumbers += 1
 	if c.firstCalled || reflect.DeepEqual(c.lastData, src) {
 		c.length += 1
@@ -45,14 +55,27 @@ func (c *RleCompressor) Compress(src []byte) {
 		c.length = 1
 	}
 	c.lastData = src
+	if common.Perf {
+		c.perf.AddCpTime(c.name, time.Now().UnixNano()-startTime)
+	}
 }
 
 func (c *RleCompressor) Finalize(out *[]byte, offset int) int {
-	offset = 0
+	var startTime int64
+	if common.Perf {
+		startTime = time.Now().UnixNano()
+	}
+	if len(c.datas) != len(c.lengths) {
+		panic("rle compressor len(c.datas) != len(c.lengths)")
+	}
+
 	if c.lastData != nil {
 		c.datas = append(c.datas, c.lastData)
 		c.lengths = append(c.lengths, c.length)
 	}
+
+	// datas/lengths's length.
+	c.buf = binary.LittleEndian.AppendUint32(c.buf, uint32(len(c.datas)))
 	for i := 0; i < len(c.datas); i++ {
 		c.buf = append(c.buf, c.datas[i]...)
 	}
@@ -61,10 +84,18 @@ func (c *RleCompressor) Finalize(out *[]byte, offset int) int {
 	}
 
 	// 1. column foramt.
+	// tmpOff := offset
 	offset = c.finalizeColumnFormat(out, offset, c.datalenType)
+	//metaData := offset - tmpOff
 	// 2. compressed data.
 	copy((*out)[offset:], c.buf)
 	offset += len(c.buf)
+
+	// fmt.Println("压缩类型: Rle", "元数据大小：", metaData, "压缩前总长度：", c.rowNumbers*uint32(c.dataLen), "压缩后总长度：", len(c.buf))
+
+	if common.Perf {
+		c.perf.AddFTime(c.name, time.Now().UnixNano()-startTime)
+	}
 	return offset
 }
 

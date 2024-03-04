@@ -3,7 +3,7 @@ package brotil
 import (
 	"bytes"
 
-	brotil "github.com/andybalholm/brotli"
+	"github.com/andybalholm/brotli"
 )
 
 func NewCompressor() *BrotliCompressor {
@@ -15,7 +15,7 @@ type BrotliCompressor struct {
 
 func (c *BrotliCompressor) Compress(src []byte) []byte {
 	var buf bytes.Buffer
-	w := brotil.NewWriterLevel(&buf, brotil.DefaultCompression)
+	w := brotli.NewWriterLevel(&buf, brotli.DefaultCompression)
 	w.Write(src)
 	w.Close()
 	return buf.Bytes()

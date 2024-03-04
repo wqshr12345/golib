@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"errors"
 
-	"github.com/wqshr12345/golib/compression/column/common"
-	"github.com/wqshr12345/golib/event"
+	"github.com/wqshr12345/golib/compression/rtc/common"
+	"github.com/wqshr12345/golib/compression/rtc/event"
 )
 
 // TODO(wangqian): 抽象到common中

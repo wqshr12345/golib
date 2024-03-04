@@ -3,6 +3,7 @@ package rtc
 import (
 	"encoding/binary"
 
+	allcompressors "github.com/wqshr12345/golib/compression/rtc/all_compressors"
 	"github.com/wqshr12345/golib/compression/rtc/common"
 	lightwightdecompression "github.com/wqshr12345/golib/compression/rtc/light_wight_decompression"
 	"github.com/wqshr12345/golib/compression/zstd"

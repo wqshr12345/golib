@@ -11,7 +11,7 @@ import (
 var (
 	ZstdCompressor                = zstd.NewCompressor()
 	RtcPerfs                      = NewRtcPerf()
-	Sync           bool           = false
+	Sync           bool           = true
 	Perf           bool           = false
 	Wait           sync.WaitGroup = sync.WaitGroup{}
 	CompressTime   int64          = 0
