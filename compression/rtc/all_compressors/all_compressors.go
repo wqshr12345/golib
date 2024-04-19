@@ -119,7 +119,7 @@ type FormatDescCompressors struct {
 func NewFormatDescCompressors() *FormatDescCompressors {
 	return &FormatDescCompressors{
 		BinlogVersionCmpr: lwcompression.NewNoCompressor2(common.DataLenFixed, 2, "formatdesc.binlogversion", common.RtcPerfs),
-		ServerVersionCmpr: lwcompression.NewNoCompressor2(common.DataLenVariable, 1, "formatdesc.serverversion", common.RtcPerfs),
+		ServerVersionCmpr: lwcompression.NewNoCompressor2(common.DataLenFixed, 50, "formatdesc.serverversion", common.RtcPerfs),
 		CreateTimeCmpr:    lwcompression.NewNoCompressor2(common.DataLenFixed, 4, "formatdesc.createtime", common.RtcPerfs),
 		HeaderLenCmpr:     lwcompression.NewNoCompressor2(common.DataLenFixed, 1, "formatdesc.headerlen", common.RtcPerfs),
 		AllCmpr:           lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenVariable, 0, "formatdesc.all", common.RtcPerfs),
@@ -230,9 +230,9 @@ func NewWriteRowsCompressors() *WriteRowsCompressors {
 		ReservedCmpr:        lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenFixed, 2, "writerows.reserved", common.RtcPerfs),
 		ExtraInfoLenCmpr:    lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenFixed, 2, "writerows.extrainfolen", common.RtcPerfs),
 		ExtraInfoCmpr:       lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenVariable, 0, "writerows.extrainfo", common.RtcPerfs),
-		ColumnNumsCmpr:      lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenFixed, 2, "writerows.columnnums", common.RtcPerfs),
-		IncludedColumnsCmpr: lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenFixed, 2, "writerows.includedcolumns", common.RtcPerfs),
-		NullColumnsCmpr:     lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenFixed, 2, "writerows.nullcolumns", common.RtcPerfs),
+		ColumnNumsCmpr:      lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenVariable, 2, "writerows.columnnums", common.RtcPerfs),
+		IncludedColumnsCmpr: lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenVariable, 2, "writerows.includedcolumns", common.RtcPerfs),
+		NullColumnsCmpr:     lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenVariable, 2, "writerows.nullcolumns", common.RtcPerfs),
 		RowsCmpr:            lwcompression.NewZstdCompressor(common.ZstdCompressor, common.DataLenVariable, 9, "writerows.rows", common.RtcPerfs),
 		Rows2Cmpr:           NewRow2Compressor(),
 		CheckSumCmpr:        lwcompression.NewNoCompressor2(common.DataLenFixed, 4, "writerows.checksum", common.RtcPerfs),

@@ -5,16 +5,18 @@ import (
 	"io"
 	"sync"
 
+	"github.com/wqshr12345/golib/common"
 	"github.com/wqshr12345/golib/compression/zstd"
 )
 
 var (
-	ZstdCompressor                = zstd.NewCompressor()
-	RtcPerfs                      = NewRtcPerf()
-	Sync           bool           = true
-	Perf           bool           = false
-	Wait           sync.WaitGroup = sync.WaitGroup{}
-	CompressTime   int64          = 0
+	ZstdCompressor                  = zstd.NewCompressor()
+	ZstdDecompressor                = zstd.NewDecompressor()
+	RtcPerfs                        = NewRtcPerf()
+	Sync             bool           = true
+	Perf             bool           = false
+	Wait             sync.WaitGroup = sync.WaitGroup{}
+	CompressTime     int64          = 0
 )
 
 type Bit bool
@@ -24,6 +26,81 @@ const (
 	One  Bit = true
 )
 
+const (
+	CompressTypeNovalid = iota
+	CompressTypeNone
+	CompressTypeLz4
+	CompressTypeSnappy
+	CompressTypeZstd
+	CompressTypeGzip
+	CompressTypeBzip2
+	CompressTypeFlate
+	CompressTypeZlib
+	CompressTypeLzw
+	CompressTypeBrotli
+	CompressTypeRtc
+)
+
+func GetCompressorByName(compressType byte) common.Compressor {
+	switch compressType {
+	case CompressTypeZstd:
+		return ZstdCompressor
+	case CompressTypeNone:
+		// return NewNoneCompressor()
+	case CompressTypeLz4:
+		// return NewLz4Compressor()
+	case CompressTypeSnappy:
+		// return NewSnappyCompressor()
+	case CompressTypeGzip:
+		// return NewGzipCompressor()
+	case CompressTypeBzip2:
+		// return NewBzip2Compressor()
+	case CompressTypeFlate:
+		// return NewFlateCompressor()
+	case CompressTypeZlib:
+		// return NewZlibCompressor()
+	case CompressTypeLzw:
+		// return NewLzwCompressor()
+	case CompressTypeBrotli:
+		// return NewBrotliCompressor()
+	case CompressTypeRtc:
+		// return NewRtcCompressor()
+	default:
+		panic("invalid compress type")
+	}
+	return nil
+}
+
+func GetDecompressorByName(compressType byte) common.Decompressor {
+	switch compressType {
+	case CompressTypeZstd:
+		return ZstdDecompressor
+	case CompressTypeNone:
+		// return NewNoneDecompressor()
+	case CompressTypeLz4:
+		// return NewLz4Decompressor()
+	case CompressTypeSnappy:
+		// return NewSnappyDecompressor()
+	case CompressTypeGzip:
+		// return NewGzipDecompressor()
+	case CompressTypeBzip2:
+		// return NewBzip2Decompressor()
+	case CompressTypeFlate:
+		// return NewFlateDecompressor()
+	case CompressTypeZlib:
+		// return NewZlibDecompressor()
+	case CompressTypeLzw:
+		// return NewLzwDecompressor()
+	case CompressTypeBrotli:
+		// return NewBrotliDecompressor()
+	case CompressTypeRtc:
+		// return NewRtcDecompressor()
+	default:
+		panic("invalid decompress type")
+	}
+	return nil
+}
+
 type EventWrapperMeta struct {
 	Offset          int
 	EventType       byte
@@ -31,6 +108,7 @@ type EventWrapperMeta struct {
 	IncludedColumns []byte // 仅在EventType == UPDATE_ROWS_EVENT等情况下有用
 }
 
+// TODO 这里的type是否可以去掉？现在每列已经没有了默认的压缩方法...
 const (
 	ColumnTypeNone byte = iota
 	ColumnDod
@@ -40,6 +118,7 @@ const (
 	ColumnTypeDelta
 	ColumnTypeRows // 专门用来区分Rows这一列的压缩类型
 	ColumnTypeVarlen
+	ColumnTypeAll
 )
 
 const (
