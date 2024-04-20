@@ -6,6 +6,8 @@ import (
 	"os"
 	"testing"
 
+	_ "net/http/pprof"
+
 	"github.com/wqshr12345/golib/adaptive"
 	"github.com/wqshr12345/golib/expriment"
 	"github.com/wqshr12345/golib/limit"
@@ -16,10 +18,13 @@ import (
 // 2. 加上元数据
 // 3. 测延迟...加上时间戳数据... (这个数据不应该算到最终压缩比中，仅在测试中有效) done
 func TestAll(t *testing.T) {
+	// go func() {
+	// 	http.ListenAndServe("0.0.0.0:8081", nil)
+	// }()
 	// filePath := "/home/lluvia/go/src/github.com/go-mysql/binlog5.txt"
-	filePath := "/home/lluvia/go/src/github.com/go-mysql/binlog.txt"
+	// filePath := "/home/lluvia/go/src/github.com/go-mysql/binlog.txt"
 	// 使用 ioutil.ReadFile 读取整个文件到字节数组中
-	fileData, err := os.ReadFile(filePath)
+	fileData, err := os.ReadFile("/home/lluvia/go/src/github.com/go-mysql/binlog0.txt")
 	if err != nil {
 		panic(err)
 	}
@@ -57,8 +62,8 @@ func TestAll(t *testing.T) {
 	}
 	defer conn.Close()
 
-	Initer := adaptive.NewIniter(limit.NewRateLimitedWriter(conn, 1*1024*1024), 10*1024*1024, 0.01)
-	Initer.SendBinlogData(fileData)
+	Initer := adaptive.NewIniter(limit.NewRateLimitedWriter(conn, 6*1024*1024*1024, 1*1024*1024*1024), 10*1024*1024*1024, 1)
+
 	// test1——accf
 	Initer.Start()
 
@@ -81,6 +86,15 @@ func TestAll(t *testing.T) {
 	// Initer.TestRtcOneBest()
 
 	// 阻塞避免程序退出
+	Initer.SendBinlogData(fileData)
+	// fileData, _ = os.ReadFile("/home/lluvia/go/src/github.com/go-mysql/binlog4.txt")
+	// Initer.SendBinlogData(fileData)
+	// fileData, _ = os.ReadFile("/home/lluvia/go/src/github.com/go-mysql/binlog3.txt")
+	// Initer.SendBinlogData(fileData)
+	// fileData, _ = os.ReadFile("/home/lluvia/go/src/github.com/go-mysql/binlog4.txt")
+	// Initer.SendBinlogData(fileData)
+	// fileData, _ = os.ReadFile("/home/lluvia/go/src/github.com/go-mysql/binlog5.txt")
+	// Initer.SendBinlogData(fileData)
 	select {}
 
 }

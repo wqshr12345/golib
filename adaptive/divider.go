@@ -21,6 +21,9 @@ func (d *Divider) divide(input <-chan []byte, output chan<- common.DataWithInfo)
 	for {
 		// TODOIMP 目前默认divide的input的数据都是一个个完整的binlog...未来如果需要继承到frp种，这里不能假设input全为完整binlog，需要在内部做buffer...
 		data := <-input
+		if len(data) == 0 || data == nil {
+			continue
+		}
 		ts := time.Now().UnixNano()
 		offset := 0
 		ok := true

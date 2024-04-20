@@ -1,6 +1,8 @@
 package aggregate
 
 import (
+	"time"
+
 	"github.com/wqshr12345/golib/common"
 	"github.com/wqshr12345/golib/compression/rtc/event"
 )
@@ -686,6 +688,7 @@ func (a *Aggregator) Aggregate(input <-chan common.DataWithInfo, output chan<- *
 		totalEvents := 0
 
 		aggData := NewAggregaData(dataWithInfo.Ts)
+		// aggData.StartTs = time.Now().UnixNano()
 
 		for start < total {
 			totalEvents += 1
@@ -698,6 +701,8 @@ func (a *Aggregator) Aggregate(input <-chan common.DataWithInfo, output chan<- *
 		}
 		// fmt.Println("aggregate package", a.testTimes)
 		a.testTimes++
+		// TODOIMP 为了减少模拟实验的误差，剔除行转列的时间
+		aggData.StartTs = time.Now().UnixNano()
 		output <- aggData
 	}
 
@@ -912,6 +917,16 @@ func (a *Aggregator) deserializeWriteRowsEventData(input []byte, aggData *Aggreg
 					aggData.type2Cmpr[common.Int] = &columnInfo{info: make([]mapInfo, 0), index: 0}
 				}
 				aggData.type2Cmpr[common.Int].info = append(aggData.type2Cmpr[common.Int].info, mapInfo{tableId: tableId, columnId: uint64(i), off: 0, len: 0})
+			} else if it.ColumnTypes[i] == common.MYSQL_TYPE_DATE {
+				if _, ok := aggData.type2Cmpr[common.TimeStamp]; !ok {
+					aggData.type2Cmpr[common.TimeStamp] = &columnInfo{info: make([]mapInfo, 0), index: 0}
+				}
+				aggData.type2Cmpr[common.TimeStamp].info = append(aggData.type2Cmpr[common.TimeStamp].info, mapInfo{tableId: tableId, columnId: uint64(i), off: 0, len: 0})
+			} else if it.ColumnTypes[i] == common.MYSQL_TYPE_TIME2 {
+				if _, ok := aggData.type2Cmpr[common.TimeStamp]; !ok {
+					aggData.type2Cmpr[common.TimeStamp] = &columnInfo{info: make([]mapInfo, 0), index: 0}
+				}
+				aggData.type2Cmpr[common.TimeStamp].info = append(aggData.type2Cmpr[common.TimeStamp].info, mapInfo{tableId: tableId, columnId: uint64(i), off: 0, len: 0})
 			} else {
 				panic("unknown column type.")
 			}

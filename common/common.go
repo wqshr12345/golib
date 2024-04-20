@@ -301,6 +301,100 @@ func NewTableInfo(src []byte) *TableInfo {
 	return tableInfo
 }
 
+func BFixedLengthInt(buf []byte) uint64 {
+	var num uint64 = 0
+	for i, b := range buf {
+		num |= uint64(b) << (uint(len(buf)-i-1) * 8)
+	}
+	return num
+}
+
+const TIMEF_OFS int64 = 0x800000000000
+const TIMEF_INT_OFS int64 = 0x800000
+
+func decodeTime2(data []byte, dec uint16) ([]byte, int, error) {
+	// time  binary length
+	n := int(3 + (dec+1)/2)
+
+	tmp := int64(0)
+	intPart := int64(0)
+	frac := int64(0)
+	switch dec {
+	case 1, 2:
+		intPart = int64(BFixedLengthInt(data[0:3])) - TIMEF_INT_OFS
+		frac = int64(data[3])
+		if intPart < 0 && frac != 0 {
+			/*
+			   Negative values are stored with reverse fractional part order,
+			   for binary sort compatibility.
+
+			     Disk value  intpart frac   Time value   Memory value
+			     800000.00    0      0      00:00:00.00  0000000000.000000
+			     7FFFFF.FF   -1      255   -00:00:00.01  FFFFFFFFFF.FFD8F0
+			     7FFFFF.9D   -1      99    -00:00:00.99  FFFFFFFFFF.F0E4D0
+			     7FFFFF.00   -1      0     -00:00:01.00  FFFFFFFFFF.000000
+			     7FFFFE.FF   -1      255   -00:00:01.01  FFFFFFFFFE.FFD8F0
+			     7FFFFE.F6   -2      246   -00:00:01.10  FFFFFFFFFE.FE7960
+
+			     Formula to convert fractional part from disk format
+			     (now stored in "frac" variable) to absolute value: "0x100 - frac".
+			     To reconstruct in-memory value, we shift
+			     to the next integer value and then substruct fractional part.
+			*/
+			intPart++     /* Shift to the next integer value */
+			frac -= 0x100 /* -(0x100 - frac) */
+		}
+		tmp = intPart<<24 + frac*10000
+	case 3, 4:
+		intPart = int64(BFixedLengthInt(data[0:3])) - TIMEF_INT_OFS
+		frac = int64(binary.BigEndian.Uint16(data[3:5]))
+		if intPart < 0 && frac != 0 {
+			/*
+			   Fix reverse fractional part order: "0x10000 - frac".
+			   See comments for FSP=1 and FSP=2 above.
+			*/
+			intPart++       /* Shift to the next integer value */
+			frac -= 0x10000 /* -(0x10000-frac) */
+		}
+		tmp = intPart<<24 + frac*100
+
+	case 5, 6:
+		tmp = int64(BFixedLengthInt(data[0:6])) - TIMEF_OFS
+		return timeFormat(tmp, dec, n)
+	default:
+		intPart = int64(BFixedLengthInt(data[0:3])) - TIMEF_INT_OFS
+		tmp = intPart << 24
+	}
+
+	if intPart == 0 && frac == 0 {
+		return []byte("00:00:00"), n, nil
+	}
+
+	return timeFormat(tmp, dec, n)
+}
+func timeFormat(tmp int64, dec uint16, n int) ([]byte, int, error) {
+	hms := int64(0)
+	sign := ""
+	if tmp < 0 {
+		tmp = -tmp
+		sign = "-"
+	}
+
+	hms = tmp >> 24
+
+	hour := (hms >> 12) % (1 << 10) /* 10 bits starting at 12th */
+	minute := (hms >> 6) % (1 << 6) /* 6 bits starting at 6th   */
+	second := hms % (1 << 6)        /* 6 bits starting at 0th   */
+	secPart := tmp % (1 << 24)
+
+	if secPart != 0 {
+		s := fmt.Sprintf("%s%02d:%02d:%02d.%06d", sign, hour, minute, second, secPart)
+		return []byte(s[0 : len(s)-(6-int(dec))]), n, nil
+	}
+
+	return []byte(fmt.Sprintf("%s%02d:%02d:%02d", sign, hour, minute, second)), n, nil
+}
+
 // 返回 数据长度 && 包含数据的字节数组
 func decodeValue(data []byte, tp byte, meta uint16, isPartial bool) (v []byte, n int) {
 	var length = 0
@@ -368,7 +462,8 @@ func decodeValue(data []byte, tp byte, meta uint16, isPartial bool) (v []byte, n
 		v = data[:n]
 
 	case MYSQL_TYPE_TIME2:
-		panic("not support type MYSQL_TYPE_TIME2")
+		v, n, _ = decodeTime2(data, meta)
+
 	case MYSQL_TYPE_DATE:
 		n = 3
 		v = data[:n]
