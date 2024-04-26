@@ -17,6 +17,32 @@ func NewDivider(bufferSize int) *Divider {
 	}
 }
 
+func (d *Divider) divide2(input <-chan []byte, output chan<- common.DataWithInfo) {
+	for {
+		// TODOIMP 目前默认divide的input的数据都是一个个完整的binlog...未来如果需要继承到frp种，这里不能假设input全为完整binlog，需要在内部做buffer...
+		data := <-input
+		ts := time.Now().UnixNano()
+		offset := 0
+		for offset < len(data) {
+			n := d.bufferSize
+
+			// fmt.Println("divide package", d.testTimes)
+			d.testTimes++
+			// endTs := time.Now().UnixNano()
+			if offset+n > len(data) {
+				n = len(data) - offset
+			}
+			dataWithInfo := common.DataWithInfo{
+				Data:        data[offset : offset+n],
+				Ts:          ts, //+ endTs - startTs.UnixNano()
+				TotalEvents: 0,
+			}
+			output <- dataWithInfo
+			offset += n
+		}
+	}
+}
+
 func (d *Divider) divide(input <-chan []byte, output chan<- common.DataWithInfo) {
 	for {
 		// TODOIMP 目前默认divide的input的数据都是一个个完整的binlog...未来如果需要继承到frp种，这里不能假设input全为完整binlog，需要在内部做buffer...
@@ -34,12 +60,10 @@ func (d *Divider) divide(input <-chan []byte, output chan<- common.DataWithInfo)
 			if !ok {
 				break
 			}
-			// fmt.Println("divide package", d.testTimes)
 			d.testTimes++
-
 			dataWithInfo := common.DataWithInfo{
 				Data:        data[offset : offset+n],
-				Ts:          ts,
+				Ts:          ts, //+ endTs - startTs.UnixNano()
 				TotalEvents: totalEvents,
 			}
 			output <- dataWithInfo
@@ -69,6 +93,10 @@ func (d *Divider) check(data []byte) (bool, int, bool, int64) {
 			break
 		}
 		bodylen := int(uint32(data[offset])<<0 | uint32(data[offset+1])<<8 | uint32(data[offset+2])<<16)
+		if len(data) < offset+3+bodylen {
+			// 数据不足以解析body
+			break
+		}
 		offset += 3
 
 		// skip sequenct

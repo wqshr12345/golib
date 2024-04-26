@@ -1,7 +1,6 @@
 package adaptive
 
 import (
-	"fmt"
 	"io"
 	"sync/atomic"
 	"time"
@@ -22,26 +21,28 @@ type Initer struct {
 	divideBuf chan common.DataWithInfo
 	aggBuf    chan *aggregate.AggregateData
 	outputBuf chan []byte
+	obBest    []byte
+	mbBest    [][]common.CmprTypeData
 
 	outputBufSize atomic.Int64
 }
 
-func NewIniter(w io.Writer, bufferSize int, cpuUsage float64) *Initer {
-	monitor := NewMonitor()
+func NewIniter(w io.Writer, bufferSize int, packageSize int, cpuUsage float64, obBest []byte, mbBest [][]common.CmprTypeData, hybridBest [][]common.CompressionIntro, rate float64, limitThreshold int64) *Initer {
+	monitor := NewMonitor(packageSize, rate)
 	i := &Initer{
 		w:         w,
 		inputBuf:  make(chan []byte, 10),
 		divideBuf: make(chan common.DataWithInfo, 10),
-		aggBuf:    make(chan *aggregate.AggregateData, 10),
-		outputBuf: make(chan []byte, 10),
+		aggBuf:    make(chan *aggregate.AggregateData, 10), // IMP 应该大于bufferSize / packageSize
+		outputBuf: make(chan []byte, 10),                   //TODOIMP 减少transmission buffer大小...
+		obBest:    obBest,
+		mbBest:    mbBest,
 		monitor:   monitor,
 		div:       NewDivider(bufferSize),
 		agg:       aggregate.NewAggregator(),
-		cmpr:      NewCompressor(monitor, cpuUsage),
-		tsport:    NewTransporter(monitor, w),
+		cmpr:      NewCompressor(monitor, cpuUsage, obBest, mbBest, hybridBest),
+		tsport:    NewTransporter(monitor, w, limitThreshold),
 	}
-	// go i.agg.Aggregate(i.divideBuf, i.aggBuf)
-	// go i.cmpr.Compress(i.aggBuf, i.outputBuf)
 	return i
 }
 
@@ -49,45 +50,52 @@ func (i *Initer) SendBinlogData(data []byte) {
 	i.inputBuf <- data
 }
 
-// func (i *Initer) TestAgg() {
-// 	i.agg.Aggregate(i.divideBuf, i.aggBuf)
-// }
+func (i *Initer) Ours(isFull bool) {
+	if isFull {
+		go i.div.divide2(i.inputBuf, i.divideBuf)
+		go i.cmpr.TestOurs(i.divideBuf, i.outputBuf, &i.outputBufSize)
+	} else {
+		go i.div.divide(i.inputBuf, i.divideBuf)
+		go i.agg.Aggregate(i.divideBuf, i.aggBuf)
+		go i.cmpr.Compress(i.aggBuf, i.outputBuf, &i.outputBufSize)
+	}
 
-// func (i *Initer) TestCompress() {
-// 	i.cmpr.Compress(i.aggBuf, i.outputBuf)
-// }
-
-// func (i *Initer) TestTransport() {
-// 	i.tsport.Transport(i.outputBuf)
-// }
-
-// 不同线程开始运作
-func (i *Initer) Start() {
-	go i.div.divide(i.inputBuf, i.divideBuf)
-	go i.agg.Aggregate(i.divideBuf, i.aggBuf)
-	go i.cmpr.Compress(i.aggBuf, i.outputBuf, &i.outputBufSize)
 	go i.tsport.Transport(i.outputBuf, &i.outputBufSize)
-	go i.TestTransBufferSize()
 }
 
 // 始终用一个压缩方法
-func (i *Initer) TestByCmprType(cmprType byte) {
-	go i.div.divide(i.inputBuf, i.divideBuf)
-	go i.cmpr.TestByCmprType(i.divideBuf, i.outputBuf, cmprType)
+func (i *Initer) TestByCmprType(cmprType byte, isFull bool) {
+	if isFull {
+		go i.div.divide2(i.inputBuf, i.divideBuf)
+	} else {
+		go i.div.divide(i.inputBuf, i.divideBuf)
+	}
+	go i.cmpr.TestByCmprType(i.divideBuf, i.outputBuf, cmprType, &i.outputBufSize)
 	go i.tsport.Transport(i.outputBuf, &i.outputBufSize)
 }
 
 // 自适应，每个buffer只能用一个压缩方法，最优的策略
+func (i *Initer) TestOneBest(isFull bool) {
+	if isFull {
+		go i.div.divide2(i.inputBuf, i.divideBuf)
+	} else {
+		go i.div.divide(i.inputBuf, i.divideBuf)
+	}
 
-func (i *Initer) TestOneBest() {
-	go i.div.divide(i.inputBuf, i.divideBuf)
-	go i.cmpr.TestOneBest(i.divideBuf, i.outputBuf)
+	go i.cmpr.TestOneBest(i.divideBuf, i.outputBuf, &i.outputBufSize)
 	go i.tsport.Transport(i.outputBuf, &i.outputBufSize)
 }
 
-func (i *Initer) TestMultiBest() {
-	go i.div.divide(i.inputBuf, i.divideBuf)
-	go i.cmpr.TestMultiBest(i.divideBuf, i.outputBuf)
+func (i *Initer) TestMultiBest(isFull bool) {
+	if isFull {
+		go i.div.divide2(i.inputBuf, i.divideBuf)
+		go i.cmpr.TestMultiBest(i.divideBuf, i.outputBuf, &i.outputBufSize)
+	} else {
+		go i.div.divide(i.inputBuf, i.divideBuf)
+		go i.agg.Aggregate(i.divideBuf, i.aggBuf)
+		go i.cmpr.TestMultiSegmentBest(i.aggBuf, i.outputBuf, &i.outputBufSize)
+	}
+
 	go i.tsport.Transport(i.outputBuf, &i.outputBufSize)
 }
 
@@ -100,8 +108,6 @@ func (i *Initer) TestRtcOneBest() {
 
 func (i *Initer) TestTransBufferSize() {
 	for {
-		fmt.Println("transport buffer size", i.outputBufSize.Load())
-		// sleep 1s
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Millisecond * 200)
 	}
 }

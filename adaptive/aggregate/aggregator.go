@@ -23,6 +23,7 @@ type AggregateData struct {
 	// 其它元数据
 	TotalEvents int
 	StartTs     int64 // 发送时间，仅在测试中使用
+	TotalLen    int
 
 	// TODO 这些可以预先初始化，divider传入一个预先序列号的event个数
 
@@ -463,15 +464,7 @@ func (a *AggregateData) GetColumnData(column byte, bytes int64) []byte {
 	// TODO1 这里返回用户列的数据
 	case common.Int:
 		return a.GetBufferByBytes(common.Int, bytes)
-		// idx := a.type2Cmpr[common.Int].index
-		// tableId := a.type2Cmpr[common.Int].info[idx].tableId
-		// columnId := a.type2Cmpr[common.Int].info[idx].columnId
-		// oriOff := a.type2Cmpr[common.Int].info[idx].off
-		// a.type2Cmpr[common.Int].info[idx].off += bytes
-		// if (a.type2Cmpr[common.Int].info[idx].off == a.type2Cmpr[common.Int].info[idx].len) && (a.type2Cmpr[common.Int].index < len(a.type2Cmpr[common.Int].info)-1) {
-		// 	a.type2Cmpr[common.Int].index += 1
-		// }
-		// return (*a.writerows.Rows2[tableId])[columnId][oriOff : oriOff+bytes]
+
 	case common.Double:
 		return a.GetBufferByBytes(common.Double, bytes)
 	case common.String:
@@ -494,6 +487,9 @@ func (a AggregateData) GetColumnData2(column byte, bytes int64) []byte {
 	case common.BodyLen:
 		oriOff := a.BodyLensOff
 		a.BodyLensOff += bytes
+		// TODOIMP 只是为了TestSegMultiBest 大于就返回最多的...
+		// 4.26
+		// if oriOff + bytes > a.bo
 		return a.BodyLens[oriOff : oriOff+bytes]
 	case common.SeqNum:
 		oriOff := a.SeqNumsOff
@@ -610,15 +606,6 @@ func (a AggregateData) GetColumnData2(column byte, bytes int64) []byte {
 	// TODO1 这里返回用户列的数据
 	case common.Int:
 		return a.GetBufferByBytes2(common.Int)
-		// idx := a.type2Cmpr[common.Int].index
-		// tableId := a.type2Cmpr[common.Int].info[idx].tableId
-		// columnId := a.type2Cmpr[common.Int].info[idx].columnId
-		// oriOff := a.type2Cmpr[common.Int].info[idx].off
-		// a.type2Cmpr[common.Int].info[idx].off += bytes
-		// if (a.type2Cmpr[common.Int].info[idx].off == a.type2Cmpr[common.Int].info[idx].len) && (a.type2Cmpr[common.Int].index < len(a.type2Cmpr[common.Int].info)-1) {
-		// 	a.type2Cmpr[common.Int].index += 1
-		// }
-		// return (*a.writerows.Rows2[tableId])[columnId][oriOff : oriOff+bytes]
 	case common.Double:
 		return a.GetBufferByBytes2(common.Double)
 	case common.String:
@@ -641,9 +628,16 @@ func (a *AggregateData) GetBufferByBytes(typ byte, bytes int64) []byte {
 	columnId := a.type2Cmpr[typ].info[idx].columnId
 	oriOff := a.type2Cmpr[typ].info[idx].off
 	a.type2Cmpr[typ].info[idx].off += bytes
-	if (a.type2Cmpr[typ].info[idx].off == a.type2Cmpr[typ].info[idx].len) && (a.type2Cmpr[typ].index < len(a.type2Cmpr[typ].info)-1) {
+	for (a.type2Cmpr[typ].info[idx].off == a.type2Cmpr[typ].info[idx].len) && (a.type2Cmpr[typ].index < len(a.type2Cmpr[typ].info)-1) {
+		// IMP 因为这里idx+1之后的列，其对应数据可能是nil，导致下一次读off和len的时候为空，导致过早退出循环...所以应该在这里判断
 		a.type2Cmpr[typ].index += 1
+		tableId := a.type2Cmpr[typ].info[a.type2Cmpr[typ].index].tableId
+		columnId := a.type2Cmpr[typ].info[a.type2Cmpr[typ].index].columnId
+		if len((*a.writerows.Rows2[tableId])[columnId]) != 0 {
+			break
+		}
 	}
+
 	return (*a.writerows.Rows2[tableId])[columnId][oriOff : oriOff+bytes]
 
 }
@@ -696,13 +690,14 @@ func (a *Aggregator) Aggregate(input <-chan common.DataWithInfo, output chan<- *
 			start = a.deserialize(data, aggData, start)
 		}
 		aggData.TotalEvents = totalEvents
+		aggData.TotalLen = len(data)
 		if dataWithInfo.TotalEvents != int64(totalEvents) {
 			panic("total events not equal")
 		}
-		// fmt.Println("aggregate package", a.testTimes)
-		a.testTimes++
 		// TODOIMP 为了减少模拟实验的误差，剔除行转列的时间
 		aggData.StartTs = time.Now().UnixNano()
+		// fmt.Println("aggregate package", a.testTimes)
+		a.testTimes++
 		output <- aggData
 	}
 

@@ -659,6 +659,13 @@ type ColumnCmpr struct {
 type CompressionInfo struct {
 	CompressionGain      float64
 	CompressionBandwidth float64 // 压缩带宽 bytes/s
+	Epoch                int64   // 只要gain和bw更新，就更新epoch
+	// UseEpoch             int64
+}
+
+type CmprTypeData struct {
+	CmprType int
+	ByteNum  int
 }
 
 type CompressionIntro struct {

@@ -10,11 +10,13 @@ import (
 // 用于模拟TCP的Reader
 type mockReader struct {
 	reader io.Reader
+	timer  *time.Timer
 }
 
 func NewMockReader(reader io.Reader) *mockReader {
 	return &mockReader{
 		reader: reader,
+		timer:  time.NewTimer(1000 * time.Second),
 	}
 }
 
@@ -25,6 +27,15 @@ func (r *mockReader) readFull(p []byte, allowEOF bool) {
 		}
 		// return false, err
 		// panic(err)
+	}
+}
+
+func (r *mockReader) Panic() {
+	for {
+		select {
+		case <-r.timer.C:
+			panic("timeout")
+		}
 	}
 }
 
@@ -74,6 +85,7 @@ func (r *mockReader) fill() {
 }
 
 func (r *mockReader) Read(p []byte) (n int, err error) {
+	r.timer.Reset(1000 * time.Second)
 	r.fill()
 
 	// TODO 把数据拷贝到p中
