@@ -699,6 +699,7 @@ func (a *Aggregator) Aggregate(input <-chan common.DataWithInfo, output chan<- *
 		// fmt.Println("aggregate package", a.testTimes)
 		a.testTimes++
 		output <- aggData
+		dataWithInfo.Data = nil
 	}
 
 }

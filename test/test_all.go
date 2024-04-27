@@ -261,8 +261,9 @@ func main() {
 		panic(err)
 	}
 
+	totalData := len(fileData)
 	// 2. client as a writer.
-	l, err := net.Listen("tcp", "localhost:12345")
+	l, err := net.Listen("tcp", "localhost:12346")
 	if err != nil {
 		fmt.Println("Error listening:", err)
 		return
@@ -271,13 +272,13 @@ func main() {
 
 	// 3. server as a reader.
 	go func() {
-		conn2, err := net.Dial("tcp", "localhost:12345")
+		conn2, err := net.Dial("tcp", "localhost:12346")
 		if err != nil {
 			fmt.Println("Error connecting:", err)
 			return
 		}
 		defer conn2.Close()
-		reader := expriment.NewMockReader(conn2)
+		reader := expriment.NewMockReader(conn2, totalData)
 
 		go reader.Panic()
 		for {
@@ -296,11 +297,15 @@ func main() {
 	// read ob mb hyb......
 	obBest := getOneBestType(obName)
 	// full
-	mbBest := getMultiBestType(mbName)
-	// incr
-	// hyBest := getMultiBestTypeIncr(mbName)
-	hyBest := getMultiBestTypeIncr(mbName)
-	// TODOIMP 修改增量，需要最后一个变为false
+	var mbBest [][]common.CmprTypeData
+	var hyBest [][]common.CompressionIntro
+	if isFull {
+		mbBest = getMultiBestType(mbName)
+	} else {
+		// incr
+		hyBest = getMultiBestTypeIncr(mbName)
+
+	}
 	// Initer := adaptive.NewIniter(limit.NewRateLimitedWriter(conn, int64(rate), int64(balance), int64(limitThreshold)), int(bufferSize), int(packageSize), cpuUsage, obBest, mbBest, float64(rate), int64(limitThreshold), true)
 	Initer := adaptive.NewIniter(limit.NewRateLimiter(conn, float64(rate), 1, int64(limitThreshold)), int(bufferSize), int(packageSize), cpuUsage, obBest, mbBest, hyBest, float64(rate), int64(limitThreshold))
 

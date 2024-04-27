@@ -9,14 +9,18 @@ import (
 
 // 用于模拟TCP的Reader
 type mockReader struct {
-	reader io.Reader
-	timer  *time.Timer
+	reader    io.Reader
+	timer     *time.Timer
+	totalData int
+	tempData  int
 }
 
-func NewMockReader(reader io.Reader) *mockReader {
+func NewMockReader(reader io.Reader, totalData int) *mockReader {
 	return &mockReader{
-		reader: reader,
-		timer:  time.NewTimer(1000 * time.Second),
+		reader:    reader,
+		timer:     time.NewTimer(1000 * time.Second),
+		totalData: totalData,
+		tempData:  0,
 	}
 }
 
@@ -79,6 +83,10 @@ func (r *mockReader) fill() {
 			fmt.Println("totalEvents: ", totalEvents)
 			fmt.Println("oriLen: ", oriLen)
 			fmt.Println("cmprLen: ", cmprLen)
+			r.tempData += cmprLen
+			if r.tempData >= r.totalData {
+				panic("read done")
+			}
 			break
 		}
 	}

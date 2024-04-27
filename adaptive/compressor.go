@@ -3,6 +3,7 @@ package adaptive
 import (
 	"encoding/binary"
 	"fmt"
+	"runtime"
 	"sync/atomic"
 	"time"
 
@@ -343,33 +344,66 @@ func (c *Compressor) TestMultiSegmentBest(input <-chan *aggregate.AggregateData,
 			packageOriLen := 0
 			packageCmprLen := 0
 			if len(c.hybridBest) == 0 || c.hybridBest == nil {
+				// 1. 首先利用最新数据更新cache
 				for i, elem := range offAndLens {
 					if (elem.Len - elem.Offset) > 0 {
 						tempMin := min(int64(c.monitor.M), elem.Len-elem.Offset)
-						data := aggData.GetColumnData(byte(i), tempMin)
+						data := aggData.GetColumnData2(byte(i), tempMin)
 						for j := common.INVALID_START + 1; j < common.INVALID_END; j++ {
 							compressor := c.allCmprs.GetCompressorByType(j)
 							oriLen := len(data)
-							packageOriLen += len(data)
-							cmprLen1 := len(packageData)
 							startTime := time.Now()
-							packageData = append(packageData, compressor.Compress(data)...)
+							tempData := compressor.Compress(data)
 							tempEndTime := time.Now()
 							tempSumTime := tempEndTime.Sub(startTime).Seconds()
 							if c.cpuUsage < 1 {
 								time.Sleep(time.Duration(tempSumTime * float64(time.Second) * (1 - c.cpuUsage) * 100))
 							}
-							endTime := time.Now()
-							cmprLen := len(packageData) - cmprLen1
-							packageCmprLen += cmprLen
-							c.monitor.UpdateCompressionInfo(byte(i), j, oriLen, cmprLen, endTime.Sub(startTime).Seconds())
+							cmprLen := len(tempData)
+							c.monitor.UpdateCompressionInfo(byte(i), j, oriLen, cmprLen, tempSumTime)
+							tempData = nil
+						}
+						if i == 20 {
+							runtime.GC()
 						}
 					}
 				}
+				// 2. 计算得到最优比例，压缩传输
 				cmprIntro := c.monitor.GetAlphaRatio(offAndLens)
+				if len(cmprIntro) == 0 {
+					break
+				}
 				fmt.Println("maxType:")
 				for _, cmprintro := range cmprIntro {
 					fmt.Println("column: ", cmprintro.Point.Column, "cmprType: ", cmprintro.Point.Cmpr, " byteNum: ", cmprintro.ByteNum)
+				}
+				all := float64(0)
+				for _, cmprintro := range cmprIntro {
+					// 2.1 根据列名和bytes，得到应该压缩的数据列
+					data := aggData.GetColumnData(cmprintro.Point.Column, cmprintro.ByteNum)
+					// 2.2 根据压缩算法名，得到压缩器,并更新offset
+					compressor := c.allCmprs.GetCompressorByType(cmprintro.Point.Cmpr)
+					// 2.3 压缩
+					oriLen := len(data)
+					packageOriLen += len(data)
+
+					cmprLen1 := len(packageData)
+					startTime := time.Now()
+
+					packageData = append(packageData, compressor.Compress(data)...)
+
+					tempEndTime := time.Now()
+					tempSumTime := tempEndTime.Sub(startTime).Seconds()
+					if c.cpuUsage < 1 {
+						time.Sleep(time.Duration(tempSumTime * float64(time.Second) * (1 - c.cpuUsage) * 100))
+					}
+					endTime := time.Now()
+					all += endTime.Sub(startTime).Seconds()
+					cmprLen := len(packageData) - cmprLen1
+					packageCmprLen += cmprLen
+
+					// 2.5 更新monitor中的cache，同时更新offset
+					c.monitor.UpdateCompressionInfo(cmprintro.Point.Column, cmprintro.Point.Cmpr, oriLen, cmprLen, endTime.Sub(startTime).Seconds())
 				}
 				// fmt.Printf("%v\n", cmprIntro)
 			} else {

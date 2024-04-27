@@ -345,15 +345,18 @@ func TestAll(t *testing.T) {
 	flag.Parse()
 
 	fileName = "/home/lluvia/go/src/github.com/go-mysql/binlog1-50.2txt"
-	bufferSize = 100 * 1024
-	packageSize = 100 * 1024
+	bufferSize = 6 * 1024 * 1204 * 1024
+	packageSize = 10 * 1024 * 1024
 	rate = 75 * 1024 * 1024
 	balance = 0 * 1024 * 1024
 	cpuUsage = 1
 	typeName = "multiBest"
 	limitThreshold = 50 * 1024
 	isFull = false
+	// mbName = "/home/wq/golib/test/incr/multiBest/max_type/1_6*1024*1024*1024_100*1024*1024_75*1024*1024_0*1024*1024_50.2txt.maxtype"
 	mbName = "wq"
+	// mbName = "wq"
+	obName = "/home/wq/golib/test/incr/oneBest/max_type/1_10*1024*1024_10*1024*1024_75*1024*1024_0*1024*1024_50.2txt.maxtype"
 
 	// 1. 读取文件内容
 	fileData, err := os.ReadFile(fileName)
@@ -361,8 +364,9 @@ func TestAll(t *testing.T) {
 		panic(err)
 	}
 
+	totalData := len(fileData)
 	// 2. client as a writer.
-	l, err := net.Listen("tcp", "localhost:12345")
+	l, err := net.Listen("tcp", "localhost:12334")
 	if err != nil {
 		fmt.Println("Error listening:", err)
 		return
@@ -371,13 +375,13 @@ func TestAll(t *testing.T) {
 
 	// 3. server as a reader.
 	go func() {
-		conn2, err := net.Dial("tcp", "localhost:12345")
+		conn2, err := net.Dial("tcp", "localhost:12334")
 		if err != nil {
 			fmt.Println("Error connecting:", err)
 			return
 		}
 		defer conn2.Close()
-		reader := expriment.NewMockReader(conn2)
+		reader := expriment.NewMockReader(conn2, totalData)
 
 		go reader.Panic()
 		for {
@@ -396,11 +400,15 @@ func TestAll(t *testing.T) {
 	// read ob mb hyb......
 	obBest := getOneBestType(obName)
 	// full
-	mbBest := getMultiBestType(mbName)
-	// incr
-	// hyBest := getMultiBestTypeIncr(mbName)
-	hyBest := getMultiBestTypeIncr(mbName)
-	// TODOIMP 修改增量，需要最后一个变为false
+	var mbBest [][]common.CmprTypeData
+	var hyBest [][]common.CompressionIntro
+	if isFull {
+		mbBest = getMultiBestType(mbName)
+	} else {
+		// incr
+		hyBest = getMultiBestTypeIncr(mbName)
+
+	}
 	// Initer := adaptive.NewIniter(limit.NewRateLimitedWriter(conn, int64(rate), int64(balance), int64(limitThreshold)), int(bufferSize), int(packageSize), cpuUsage, obBest, mbBest, float64(rate), int64(limitThreshold), true)
 	Initer := adaptive.NewIniter(limit.NewRateLimiter(conn, float64(rate), 1, int64(limitThreshold)), int(bufferSize), int(packageSize), cpuUsage, obBest, mbBest, hyBest, float64(rate), int64(limitThreshold))
 
