@@ -251,10 +251,26 @@ func main() {
 	flag.StringVar(&mbName, "mbName", "/home/lluvia/go/src/github.com/go-mysql/binlog5.txt", "a string to set mbBest name")
 	var limitThreshold IntExpression
 	flag.Var(&limitThreshold, "limitThreshold", "a int to set limit threshold")
+	var epochThreshold IntExpression
+	flag.Var(&epochThreshold, "epochThreshold", "a int to set epoch threshold")
 	var isFull bool
 	flag.BoolVar(&isFull, "isFull", false, "a bool to set isFull")
 	flag.Parse()
 
+	// cpuUsage = 1
+	// bufferSize = 10 * 1024 * 1024
+	// rate = 64 * 1024 * 1024
+	// balance = 0 * 1024 * 1024
+	// packageSize = 10 * 1024 * 1024
+	// typeName = "ours"
+	// fileName = "/home/wq/sql/Shuffleak"
+	// // fileName = "/home/wq/binlog/binlog081-121.txt"
+	// // obName = "wq"
+	// mbName = "wq"
+	// epochThreshold = 100
+	// // mbName = "/home/wq/golib/test/all/multiBest/max_type/'1_10*1024*1024_10*1024*1024_170*1024*1024_0*1024*1024_100000000_uffleaa.maxtype"
+	// limitThreshold = 50 * 1024
+	// isFull = true
 	// 1. 读取文件内容
 	fileData, err := os.ReadFile(fileName)
 	if err != nil {
@@ -263,7 +279,7 @@ func main() {
 
 	totalData := len(fileData)
 	// 2. client as a writer.
-	l, err := net.Listen("tcp", "localhost:12346")
+	l, err := net.Listen("tcp", "localhost:25212")
 	if err != nil {
 		fmt.Println("Error listening:", err)
 		return
@@ -272,7 +288,7 @@ func main() {
 
 	// 3. server as a reader.
 	go func() {
-		conn2, err := net.Dial("tcp", "localhost:12346")
+		conn2, err := net.Dial("tcp", "localhost:25212")
 		if err != nil {
 			fmt.Println("Error connecting:", err)
 			return
@@ -306,8 +322,8 @@ func main() {
 		hyBest = getMultiBestTypeIncr(mbName)
 
 	}
-	// Initer := adaptive.NewIniter(limit.NewRateLimitedWriter(conn, int64(rate), int64(balance), int64(limitThreshold)), int(bufferSize), int(packageSize), cpuUsage, obBest, mbBest, float64(rate), int64(limitThreshold), true)
-	Initer := adaptive.NewIniter(limit.NewRateLimiter(conn, float64(rate), 1, int64(limitThreshold)), int(bufferSize), int(packageSize), cpuUsage, obBest, mbBest, hyBest, float64(rate), int64(limitThreshold))
+	Initer := adaptive.NewIniter(limit.NewRateLimitedWriter(conn, int64(rate), int64(balance), int64(limitThreshold)), int(bufferSize), int(packageSize), cpuUsage, obBest, mbBest, hyBest, float64(rate), int64(limitThreshold), int64(epochThreshold), true)
+	// Initer := adaptive.NewIniter(limit.NewRateLimiter(conn, float64(rate), float64(balance), 1, 3, int64(limitThreshold)), int(bufferSize), int(packageSize), cpuUsage, obBest, mbBest, hyBest, float64(rate), int64(limitThreshold), int64(epochThreshold), true)
 
 	Initer.SendBinlogData(fileData)
 
@@ -322,18 +338,27 @@ func main() {
 	fmt.Println("packageSize ", packageSize)
 	fmt.Println("limitThreshold: ", limitThreshold)
 	fmt.Println("isFull: ", isFull)
+	fmt.Println("epochthreshold", epochThreshold)
 	fmt.Println("time: ", time.Now())
 
 	if typeName == "ours" {
 		Initer.Ours(isFull)
 	} else if typeName == "zstd" {
 		Initer.TestByCmprType(common.ZSTD, isFull)
+		// } else if typeName == "xz" {
+		// Initer.TestByCmprType(common.XZ, isFull)
 	} else if typeName == "snappy" {
 		Initer.TestByCmprType(common.SNAPPY, isFull)
 	} else if typeName == "lz4" {
 		Initer.TestByCmprType(common.LZ4, isFull)
 	} else if typeName == "nocompression" {
 		Initer.TestByCmprType(common.NOCOMPRESSION, isFull)
+	} else if typeName == "lzo" {
+		Initer.TestByCmprType(common.LZO, isFull)
+	} else if typeName == "gzip" {
+		Initer.TestByCmprType(common.GZIP, isFull)
+	} else if typeName == "flate" {
+		Initer.TestByCmprType(common.FLATE, isFull)
 	} else if typeName == "oneBest" {
 		Initer.TestOneBest(isFull)
 	} else if typeName == "multiBest" {

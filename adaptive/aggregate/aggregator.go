@@ -347,118 +347,236 @@ func (a *AggregateData) GetColumnData(column byte, bytes int64) []byte {
 	switch column {
 	case common.BodyLen:
 		oriOff := a.BodyLensOff
+		if oriOff+bytes > int64(len(a.BodyLens)) {
+			a.BodyLensOff += int64(len(a.BodyLens)) - oriOff
+			return a.BodyLens[oriOff:]
+		}
 		a.BodyLensOff += bytes
 		return a.BodyLens[oriOff : oriOff+bytes]
 	case common.SeqNum:
 		oriOff := a.SeqNumsOff
+		if oriOff+bytes > int64(len(a.SequenceNumbers)) {
+			a.SeqNumsOff += int64(len(a.SequenceNumbers)) - oriOff
+			return a.SequenceNumbers[oriOff:]
+		}
 		a.SeqNumsOff += bytes
 		return a.SequenceNumbers[oriOff : oriOff+bytes]
 	case common.Flag1:
 		oriOff := a.Flags1Off
+		if oriOff+bytes > int64(len(a.Flags1)) {
+			a.Flags1Off += int64(len(a.Flags1)) - oriOff
+			return a.Flags1[oriOff:]
+		}
 		a.Flags1Off += bytes
 		return a.Flags1[oriOff : oriOff+bytes]
 	case common.Timestamp:
 		oriOff := a.TimestampsOff
+		if oriOff+bytes > int64(len(a.Timestamps)) {
+			a.TimestampsOff += int64(len(a.Timestamps)) - oriOff
+			return a.Timestamps[oriOff:]
+		}
+
 		a.TimestampsOff += bytes
+
 		return a.Timestamps[oriOff : oriOff+bytes]
 	case common.EventType:
 		oriOff := a.EventTypesOff
+		if oriOff+bytes > int64(len(a.EventTypes)) {
+			a.EventTypesOff += int64(len(a.EventTypes)) - oriOff
+			return a.EventTypes[oriOff:]
+		}
 		a.EventTypesOff += bytes
 		return a.EventTypes[oriOff : oriOff+bytes]
 	case common.ServerId:
 		oriOff := a.ServerIdsOff
+		if oriOff+bytes > int64(len(a.ServerIds)) {
+			a.ServerIdsOff += int64(len(a.ServerIds)) - oriOff
+			return a.ServerIds[oriOff:]
+		}
 		a.ServerIdsOff += bytes
 		return a.ServerIds[oriOff : oriOff+bytes]
 	case common.EventLen:
 		oriOff := a.EventLensOff
+		if oriOff+bytes > int64(len(a.EventLens)) {
+			a.EventLensOff += int64(len(a.EventLens)) - oriOff
+			return a.EventLens[oriOff:]
+		}
 		a.EventLensOff += bytes
 		return a.EventLens[oriOff : oriOff+bytes]
 	case common.NextPos:
 		oriOff := a.NextPosesOff
+		if oriOff+bytes > int64(len(a.NextPoses)) {
+			a.NextPosesOff += int64(len(a.NextPoses)) - oriOff
+			return a.NextPoses[oriOff:]
+		}
 		a.NextPosesOff += bytes
 		return a.NextPoses[oriOff : oriOff+bytes]
 	case common.Flag:
 		oriOff := a.FlagsOff
+		if oriOff+bytes > int64(len(a.Flags)) {
+			a.FlagsOff += int64(len(a.Flags)) - oriOff
+			return a.Flags[oriOff:]
+		}
 		a.FlagsOff += bytes
 		return a.Flags[oriOff : oriOff+bytes]
 	case common.FormatDescriptionEventAll:
 		oriOff := a.formats.AllsOff
+		if oriOff+bytes > int64(len(a.formats.Alls)) {
+			a.formats.AllsOff += int64(len(a.formats.Alls)) - oriOff
+			return a.formats.Alls[oriOff:]
+		}
 		a.formats.AllsOff += bytes
 		return a.formats.Alls[oriOff : oriOff+bytes]
 	case common.TransactionPayloadEventAll:
 		oriOff := a.trans.AllsOff
+		if oriOff+bytes > int64(len(a.trans.Alls)) {
+			a.trans.AllsOff += int64(len(a.trans.Alls)) - oriOff
+			return a.trans.Alls[oriOff:]
+		}
 		a.trans.AllsOff += bytes
 		return a.trans.Alls[oriOff : oriOff+bytes]
 	case common.PreviousGTIDsEventAll:
 		oriOff := a.prevs.AllsOff
+		if oriOff+bytes > int64(len(a.prevs.Alls)) {
+			a.prevs.AllsOff += int64(len(a.prevs.Alls)) - oriOff
+			return a.prevs.Alls[oriOff:]
+		}
 		a.prevs.AllsOff += bytes
 		return a.prevs.Alls[oriOff : oriOff+bytes]
 	case common.AnonymousGTIDEventAll:
 		oriOff := a.anons.AllsOff
+		if oriOff+bytes > int64(len(a.anons.Alls)) {
+			a.anons.AllsOff += int64(len(a.anons.Alls)) - oriOff
+			return a.anons.Alls[oriOff:]
+		}
 		a.anons.AllsOff += bytes
 		return a.anons.Alls[oriOff : oriOff+bytes]
 	case common.RotateEventAll:
 		oriOff := a.rotates.AllsOff
+		if oriOff+bytes > int64(len(a.rotates.Alls)) {
+			a.rotates.AllsOff += int64(len(a.rotates.Alls)) - oriOff
+			return a.rotates.Alls[oriOff:]
+		}
 		a.rotates.AllsOff += bytes
 		return a.rotates.Alls[oriOff : oriOff+bytes]
 	case common.QueryEventAll:
 		oriOff := a.querys.AllsOff
+		if oriOff+bytes > int64(len(a.querys.Alls)) {
+			a.querys.AllsOff += int64(len(a.querys.Alls)) - oriOff
+			return a.querys.Alls[oriOff:]
+		}
 		a.querys.AllsOff += bytes
 		return a.querys.Alls[oriOff : oriOff+bytes]
 	case common.XidEventAll:
 		oriOff := a.xids.AllsOff
+		if oriOff+bytes > int64(len(a.xids.Alls)) {
+			a.xids.AllsOff += int64(len(a.xids.Alls)) - oriOff
+			return a.xids.Alls[oriOff:]
+		}
 		a.xids.AllsOff += bytes
 		return a.xids.Alls[oriOff : oriOff+bytes]
 	case common.TableId:
 		oriOff := a.tablemaps.TableIdsOff
+		if oriOff+bytes > int64(len(a.tablemaps.TableIds)) {
+			a.tablemaps.TableIdsOff += int64(len(a.tablemaps.TableIds)) - oriOff
+			return a.tablemaps.TableIds[oriOff:]
+		}
 		a.tablemaps.TableIdsOff += bytes
 		return a.tablemaps.TableIds[oriOff : oriOff+bytes]
 	case common.NoUsed:
 		oriOff := a.tablemaps.NoUsedsOff
+		if oriOff+bytes > int64(len(a.tablemaps.NoUseds)) {
+			a.tablemaps.NoUsedsOff += int64(len(a.tablemaps.NoUseds)) - oriOff
+			return a.tablemaps.NoUseds[oriOff:]
+		}
 		a.tablemaps.NoUsedsOff += bytes
 		return a.tablemaps.NoUseds[oriOff : oriOff+bytes]
 	case common.DbNameLen:
 		oriOff := a.tablemaps.DbNameLensOff
+		if oriOff+bytes > int64(len(a.tablemaps.DbNameLens)) {
+			a.tablemaps.DbNameLensOff += int64(len(a.tablemaps.DbNameLens)) - oriOff
+			return a.tablemaps.DbNameLens[oriOff:]
+		}
 		a.tablemaps.DbNameLensOff += bytes
 		return a.tablemaps.DbNameLens[oriOff : oriOff+bytes]
 	case common.DbName:
 		oriOff := a.tablemaps.DbNamesOff
+		if oriOff+bytes > int64(len(a.tablemaps.DbNames)) {
+			a.tablemaps.DbNamesOff += int64(len(a.tablemaps.DbNames)) - oriOff
+			return a.tablemaps.DbNames[oriOff:]
+		}
 		a.tablemaps.DbNamesOff += bytes
 		return a.tablemaps.DbNames[oriOff : oriOff+bytes]
 	case common.TableInfo2:
 		oriOff := a.tablemaps.TableInfosOff
+		if oriOff+bytes > int64(len(a.tablemaps.TableInfos)) {
+			a.tablemaps.TableInfosOff += int64(len(a.tablemaps.TableInfos)) - oriOff
+			return a.tablemaps.TableInfos[oriOff:]
+		}
 		a.tablemaps.TableInfosOff += bytes
 		return a.tablemaps.TableInfos[oriOff : oriOff+bytes]
 	case common.TableId2:
 		oriOff := a.writerows.TableIdsOff
+		if oriOff+bytes > int64(len(a.writerows.TableIds)) {
+			a.writerows.TableIdsOff += int64(len(a.writerows.TableIds)) - oriOff
+			return a.writerows.TableIds[oriOff:]
+		}
 		a.writerows.TableIdsOff += bytes
 		return a.writerows.TableIds[oriOff : oriOff+bytes]
 	case common.Reserved:
 		oriOff := a.writerows.ReservedsOff
+		if oriOff+bytes > int64(len(a.writerows.Reserveds)) {
+			a.writerows.ReservedsOff += int64(len(a.writerows.Reserveds)) - oriOff
+			return a.writerows.Reserveds[oriOff:]
+		}
 		a.writerows.ReservedsOff += bytes
 		return a.writerows.Reserveds[oriOff : oriOff+bytes]
 	case common.ExtraInfoLen:
 		oriOff := a.writerows.ExtraInfoLensOff
+		if oriOff+bytes > int64(len(a.writerows.ExtraInfoLens)) {
+			a.writerows.ExtraInfoLensOff += int64(len(a.writerows.ExtraInfoLens)) - oriOff
+			return a.writerows.ExtraInfoLens[oriOff:]
+		}
 		a.writerows.ExtraInfoLensOff += bytes
 		return a.writerows.ExtraInfoLens[oriOff : oriOff+bytes]
 	case common.ExtraInfo:
 		oriOff := a.writerows.ExtraInfosOff
+		if oriOff+bytes > int64(len(a.writerows.ExtraInfos)) {
+			a.writerows.ExtraInfosOff += int64(len(a.writerows.ExtraInfos)) - oriOff
+			return a.writerows.ExtraInfos[oriOff:]
+		}
 		a.writerows.ExtraInfosOff += bytes
 		return a.writerows.ExtraInfos[oriOff : oriOff+bytes]
 	case common.ColumnNum:
 		oriOff := a.writerows.ColumnNumsOff
+		if oriOff+bytes > int64(len(a.writerows.ColumnNums)) {
+			a.writerows.ColumnNumsOff += int64(len(a.writerows.ColumnNums)) - oriOff
+			return a.writerows.ColumnNums[oriOff:]
+		}
 		a.writerows.ColumnNumsOff += bytes
 		return a.writerows.ColumnNums[oriOff : oriOff+bytes]
 	case common.IncludedColumn:
 		oriOff := a.writerows.IncludedColumnsOff
+		if oriOff+bytes > int64(len(a.writerows.IncludedColumns)) {
+			a.writerows.IncludedColumnsOff += int64(len(a.writerows.IncludedColumns)) - oriOff
+			return a.writerows.IncludedColumns[oriOff:]
+		}
 		a.writerows.IncludedColumnsOff += bytes
 		return a.writerows.IncludedColumns[oriOff : oriOff+bytes]
 	case common.NullColumn:
 		oriOff := a.writerows.NullColumnsOff
+		if oriOff+bytes > int64(len(a.writerows.NullColumns)) {
+			a.writerows.NullColumnsOff += int64(len(a.writerows.NullColumns)) - oriOff
+			return a.writerows.NullColumns[oriOff:]
+		}
 		a.writerows.NullColumnsOff += bytes
 		return a.writerows.NullColumns[oriOff : oriOff+bytes]
 	case common.CheckSum:
 		oriOff := a.writerows.ChecksumsOff
+		if oriOff+bytes > int64(len(a.writerows.Checksums)) {
+			a.writerows.ChecksumsOff += int64(len(a.writerows.Checksums)) - oriOff
+			return a.writerows.Checksums[oriOff:]
+		}
 		a.writerows.ChecksumsOff += bytes
 		return a.writerows.Checksums[oriOff : oriOff+bytes]
 	// TODO1 这里返回用户列的数据
@@ -486,136 +604,104 @@ func (a AggregateData) GetColumnData2(column byte, bytes int64) []byte {
 	switch column {
 	case common.BodyLen:
 		oriOff := a.BodyLensOff
-		a.BodyLensOff += bytes
-		// TODOIMP 只是为了TestSegMultiBest 大于就返回最多的...
-		// 4.26
-		// if oriOff + bytes > a.bo
 		return a.BodyLens[oriOff : oriOff+bytes]
 	case common.SeqNum:
 		oriOff := a.SeqNumsOff
-		a.SeqNumsOff += bytes
 		return a.SequenceNumbers[oriOff : oriOff+bytes]
 	case common.Flag1:
 		oriOff := a.Flags1Off
-		a.Flags1Off += bytes
 		return a.Flags1[oriOff : oriOff+bytes]
 	case common.Timestamp:
 		oriOff := a.TimestampsOff
-		a.TimestampsOff += bytes
 		return a.Timestamps[oriOff : oriOff+bytes]
 	case common.EventType:
 		oriOff := a.EventTypesOff
-		a.EventTypesOff += bytes
 		return a.EventTypes[oriOff : oriOff+bytes]
 	case common.ServerId:
 		oriOff := a.ServerIdsOff
-		a.ServerIdsOff += bytes
 		return a.ServerIds[oriOff : oriOff+bytes]
 	case common.EventLen:
 		oriOff := a.EventLensOff
-		a.EventLensOff += bytes
 		return a.EventLens[oriOff : oriOff+bytes]
 	case common.NextPos:
 		oriOff := a.NextPosesOff
-		a.NextPosesOff += bytes
 		return a.NextPoses[oriOff : oriOff+bytes]
 	case common.Flag:
 		oriOff := a.FlagsOff
-		a.FlagsOff += bytes
 		return a.Flags[oriOff : oriOff+bytes]
 	case common.FormatDescriptionEventAll:
 		oriOff := a.formats.AllsOff
-		a.formats.AllsOff += bytes
 		return a.formats.Alls[oriOff : oriOff+bytes]
 	case common.TransactionPayloadEventAll:
 		oriOff := a.trans.AllsOff
-		a.trans.AllsOff += bytes
 		return a.trans.Alls[oriOff : oriOff+bytes]
 	case common.PreviousGTIDsEventAll:
 		oriOff := a.prevs.AllsOff
-		a.prevs.AllsOff += bytes
 		return a.prevs.Alls[oriOff : oriOff+bytes]
 	case common.AnonymousGTIDEventAll:
 		oriOff := a.anons.AllsOff
-		a.anons.AllsOff += bytes
 		return a.anons.Alls[oriOff : oriOff+bytes]
 	case common.RotateEventAll:
 		oriOff := a.rotates.AllsOff
-		a.rotates.AllsOff += bytes
 		return a.rotates.Alls[oriOff : oriOff+bytes]
 	case common.QueryEventAll:
 		oriOff := a.querys.AllsOff
-		a.querys.AllsOff += bytes
 		return a.querys.Alls[oriOff : oriOff+bytes]
 	case common.XidEventAll:
 		oriOff := a.xids.AllsOff
-		a.xids.AllsOff += bytes
 		return a.xids.Alls[oriOff : oriOff+bytes]
 	case common.TableId:
 		oriOff := a.tablemaps.TableIdsOff
-		a.tablemaps.TableIdsOff += bytes
 		return a.tablemaps.TableIds[oriOff : oriOff+bytes]
 	case common.NoUsed:
 		oriOff := a.tablemaps.NoUsedsOff
-		a.tablemaps.NoUsedsOff += bytes
 		return a.tablemaps.NoUseds[oriOff : oriOff+bytes]
 	case common.DbNameLen:
 		oriOff := a.tablemaps.DbNameLensOff
-		a.tablemaps.DbNameLensOff += bytes
 		return a.tablemaps.DbNameLens[oriOff : oriOff+bytes]
 	case common.DbName:
 		oriOff := a.tablemaps.DbNamesOff
-		a.tablemaps.DbNamesOff += bytes
 		return a.tablemaps.DbNames[oriOff : oriOff+bytes]
 	case common.TableInfo2:
 		oriOff := a.tablemaps.TableInfosOff
-		a.tablemaps.TableInfosOff += bytes
 		return a.tablemaps.TableInfos[oriOff : oriOff+bytes]
 	case common.TableId2:
 		oriOff := a.writerows.TableIdsOff
-		a.writerows.TableIdsOff += bytes
 		return a.writerows.TableIds[oriOff : oriOff+bytes]
 	case common.Reserved:
 		oriOff := a.writerows.ReservedsOff
-		a.writerows.ReservedsOff += bytes
 		return a.writerows.Reserveds[oriOff : oriOff+bytes]
 	case common.ExtraInfoLen:
 		oriOff := a.writerows.ExtraInfoLensOff
-		a.writerows.ExtraInfoLensOff += bytes
 		return a.writerows.ExtraInfoLens[oriOff : oriOff+bytes]
 	case common.ExtraInfo:
 		oriOff := a.writerows.ExtraInfosOff
-		a.writerows.ExtraInfosOff += bytes
 		return a.writerows.ExtraInfos[oriOff : oriOff+bytes]
 	case common.ColumnNum:
 		oriOff := a.writerows.ColumnNumsOff
-		a.writerows.ColumnNumsOff += bytes
 		return a.writerows.ColumnNums[oriOff : oriOff+bytes]
 	case common.IncludedColumn:
 		oriOff := a.writerows.IncludedColumnsOff
-		a.writerows.IncludedColumnsOff += bytes
 		return a.writerows.IncludedColumns[oriOff : oriOff+bytes]
 	case common.NullColumn:
 		oriOff := a.writerows.NullColumnsOff
-		a.writerows.NullColumnsOff += bytes
 		return a.writerows.NullColumns[oriOff : oriOff+bytes]
 	case common.CheckSum:
 		oriOff := a.writerows.ChecksumsOff
-		a.writerows.ChecksumsOff += bytes
 		return a.writerows.Checksums[oriOff : oriOff+bytes]
 	// TODO1 这里返回用户列的数据
 	case common.Int:
-		return a.GetBufferByBytes2(common.Int)
+		return a.GetBufferByBytes2(common.Int, bytes)
 	case common.Double:
-		return a.GetBufferByBytes2(common.Double)
+		return a.GetBufferByBytes2(common.Double, bytes)
 	case common.String:
-		return a.GetBufferByBytes2(common.String)
+		return a.GetBufferByBytes2(common.String, bytes)
 	case common.Long:
-		return a.GetBufferByBytes2(common.Long)
+		return a.GetBufferByBytes2(common.Long, bytes)
 	case common.TimeStamp:
-		return a.GetBufferByBytes2(common.TimeStamp)
+		return a.GetBufferByBytes2(common.TimeStamp, bytes)
 	case common.Tiny:
-		return a.GetBufferByBytes2(common.Tiny)
+		return a.GetBufferByBytes2(common.Tiny, bytes)
 	default:
 		panic("unknown column.")
 
@@ -627,34 +713,46 @@ func (a *AggregateData) GetBufferByBytes(typ byte, bytes int64) []byte {
 	tableId := a.type2Cmpr[typ].info[idx].tableId
 	columnId := a.type2Cmpr[typ].info[idx].columnId
 	oriOff := a.type2Cmpr[typ].info[idx].off
+	if oriOff+bytes > int64(len((*a.writerows.Rows2[tableId])[columnId])) {
+		a.type2Cmpr[typ].info[idx].off += int64(len((*a.writerows.Rows2[tableId])[columnId])) - oriOff
+	}
 	a.type2Cmpr[typ].info[idx].off += bytes
-	for (a.type2Cmpr[typ].info[idx].off == a.type2Cmpr[typ].info[idx].len) && (a.type2Cmpr[typ].index < len(a.type2Cmpr[typ].info)-1) {
+	for (a.type2Cmpr[typ].info[idx].off >= a.type2Cmpr[typ].info[idx].len) && (a.type2Cmpr[typ].index < len(a.type2Cmpr[typ].info)-1) {
 		// IMP 因为这里idx+1之后的列，其对应数据可能是nil，导致下一次读off和len的时候为空，导致过早退出循环...所以应该在这里判断
 		a.type2Cmpr[typ].index += 1
-		tableId := a.type2Cmpr[typ].info[a.type2Cmpr[typ].index].tableId
-		columnId := a.type2Cmpr[typ].info[a.type2Cmpr[typ].index].columnId
-		if len((*a.writerows.Rows2[tableId])[columnId]) != 0 {
+		tableId2 := a.type2Cmpr[typ].info[a.type2Cmpr[typ].index].tableId
+		columnId2 := a.type2Cmpr[typ].info[a.type2Cmpr[typ].index].columnId
+		if len((*a.writerows.Rows2[tableId2])[columnId2]) != 0 {
 			break
 		}
 	}
-
+	if oriOff+bytes > int64(len((*a.writerows.Rows2[tableId])[columnId])) {
+		if oriOff > int64(len((*a.writerows.Rows2[tableId])[columnId])) {
+			minLen := min(bytes, int64(len((*a.writerows.Rows2[tableId])[columnId])))
+			return (*a.writerows.Rows2[tableId])[columnId][:minLen]
+		}
+		return (*a.writerows.Rows2[tableId])[columnId][oriOff:]
+	}
 	return (*a.writerows.Rows2[tableId])[columnId][oriOff : oriOff+bytes]
 
 }
 
-func (a *AggregateData) GetBufferByBytes2(typ byte) []byte {
-	tempData := make([]byte, 0)
-	_, ok := a.type2Cmpr[typ]
-	if !ok {
-		return tempData
-	}
-	info := a.type2Cmpr[typ].info
-	for _, value := range info {
-		tableId := value.tableId
-		columnId := value.columnId
-		tempData = append(tempData, (*a.writerows.Rows2[tableId])[columnId]...)
-	}
-	return tempData
+func (a AggregateData) GetBufferByBytes2(typ byte, bytes int64) []byte {
+	idx := a.type2Cmpr[typ].index
+	tableId := a.type2Cmpr[typ].info[idx].tableId
+	columnId := a.type2Cmpr[typ].info[idx].columnId
+	oriOff := a.type2Cmpr[typ].info[idx].off
+	// for (a.type2Cmpr[typ].info[idx].off == a.type2Cmpr[typ].info[idx].len) && (a.type2Cmpr[typ].index < len(a.type2Cmpr[typ].info)-1) {
+	// 	// IMP 因为这里idx+1之后的列，其对应数据可能是nil，导致下一次读off和len的时候为空，导致过早退出循环...所以应该在这里判断
+	// 	tempIdx := a.type2Cmpr[typ].index + 1
+	// 	tableId := a.type2Cmpr[typ].info[tempIdx].tableId
+	// 	columnId := a.type2Cmpr[typ].info[tempIdx].columnId
+	// 	if len((*a.writerows.Rows2[tableId])[columnId]) != 0 {
+	// 		break
+	// 	}
+	// }
+
+	return (*a.writerows.Rows2[tableId])[columnId][oriOff : oriOff+bytes]
 }
 
 type AggregateMetaData struct {

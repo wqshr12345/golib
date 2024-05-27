@@ -25,3 +25,5 @@ _testmain.go
 
 *.txt
 *.maxtype
+
+*.cache

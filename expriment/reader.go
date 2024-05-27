@@ -18,7 +18,7 @@ type mockReader struct {
 func NewMockReader(reader io.Reader, totalData int) *mockReader {
 	return &mockReader{
 		reader:    reader,
-		timer:     time.NewTimer(1000 * time.Second),
+		timer:     time.NewTimer(20 * time.Second),
 		totalData: totalData,
 		tempData:  0,
 	}
@@ -54,6 +54,7 @@ func (r *mockReader) fill() {
 	}
 	// 2. read package data
 	for {
+		r.timer.Reset(20 * time.Second)
 		buffer = make([]byte, 2)
 		r.readFull(buffer, true)
 
@@ -83,7 +84,7 @@ func (r *mockReader) fill() {
 			fmt.Println("totalEvents: ", totalEvents)
 			fmt.Println("oriLen: ", oriLen)
 			fmt.Println("cmprLen: ", cmprLen)
-			r.tempData += cmprLen
+			r.tempData += oriLen
 			if r.tempData >= r.totalData {
 				panic("read done")
 			}
@@ -93,7 +94,6 @@ func (r *mockReader) fill() {
 }
 
 func (r *mockReader) Read(p []byte) (n int, err error) {
-	r.timer.Reset(1000 * time.Second)
 	r.fill()
 
 	// TODO 把数据拷贝到p中

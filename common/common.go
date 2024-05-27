@@ -635,8 +635,12 @@ const (
 	// GZIP
 	LZ4
 	ZSTD
-	RLE
-	DELTA
+	LZO
+	GZIP
+	FLATE
+	// XZ
+	// RLE
+	// DELTA
 	INVALID_END
 )
 

@@ -37,6 +37,7 @@ func (d *Divider) divide2(input <-chan []byte, output chan<- common.DataWithInfo
 				Ts:          ts, //+ endTs - startTs.UnixNano()
 				TotalEvents: 0,
 			}
+			d.testTimes++
 			output <- dataWithInfo
 			offset += n
 		}

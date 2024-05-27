@@ -1,6 +1,7 @@
 package limit
 
 import (
+	"fmt"
 	"io"
 	"math/rand"
 	"sync/atomic"
@@ -13,17 +14,26 @@ type RateLimitedWriter struct {
 	rate           int64 // 每秒写入速率（字节）
 	balance        int64 // 平衡
 	limitThreshold int64
+	bandwidths     []int64
+	bwIdx          int
 }
 
 func NewRateLimitedWriter(w io.Writer, rate int64, balance int64, limitThreshold int64) *RateLimitedWriter {
+	// 根据rate和balance，将[rate-balance, rate+balance]之间的带宽均分为五份存放到bandwitdhs中
+	bandwidths := make([]int64, 5)
+	for i := 0; i < 5; i++ {
+		bandwidths[i] = rate - balance + int64(i)*(2*balance)/4
+	}
 	rateLimitedWriter := &RateLimitedWriter{
 		w:              w,
 		oriRate:        rate,
 		rate:           rate,
 		balance:        balance,
 		limitThreshold: limitThreshold,
+		bandwidths:     bandwidths,
+		bwIdx:          0,
 	}
-	go rateLimitedWriter.ChangeRateTimely()
+	// go rateLimitedWriter.ChangeRateTimely()
 	return rateLimitedWriter
 }
 
@@ -43,11 +53,20 @@ func (r *RateLimitedWriter) Write(data []byte) (int, error) {
 }
 
 func (r *RateLimitedWriter) ChangeRateTimely() {
+	rand.Seed(1111)
 	for {
 		time.Sleep(time.Second * 3)
-		rand.Seed(time.Now().UnixNano())
+		// 做固定波动实验
+		// rand.Seed(time.Now().UnixNano())
 		if r.balance != 0 {
 			atomic.StoreInt64(&r.rate, rand.Int63n(2*r.balance)+r.oriRate-r.balance)
 		}
 	}
+}
+
+// 为了模拟固定的波动带宽
+func (r *RateLimitedWriter) ChangeRate() {
+	r.bwIdx = (r.bwIdx + 1) % 5
+	fmt.Println("update bandwitdh", r.bandwidths[r.bwIdx])
+	atomic.StoreInt64(&r.rate, r.bandwidths[r.bwIdx])
 }

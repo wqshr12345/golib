@@ -350,7 +350,7 @@ func TestAll(t *testing.T) {
 	rate = 75 * 1024 * 1024
 	balance = 0 * 1024 * 1024
 	cpuUsage = 1
-	typeName = "multiBest"
+	typeName = "ours"
 	limitThreshold = 50 * 1024
 	isFull = false
 	// mbName = "/home/wq/golib/test/incr/multiBest/max_type/1_6*1024*1024*1024_100*1024*1024_75*1024*1024_0*1024*1024_50.2txt.maxtype"

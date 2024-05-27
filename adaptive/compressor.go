@@ -3,7 +3,6 @@ package adaptive
 import (
 	"encoding/binary"
 	"fmt"
-	"runtime"
 	"sync/atomic"
 	"time"
 
@@ -52,10 +51,14 @@ func (c *Compressor) TestByCmprType(input <-chan common.DataWithInfo, output cha
 		cmpr := c.allCmprs.GetCompressorByType(cmprType)
 
 		startTime := time.Now()
+		// startRusage, _ := common.GetRusage()
+
 		packageData = append(packageData, cmpr.Compress(data)...)
 
-		tempEndTime := time.Now()
+		// endRusage, _ := common.GetRusage()
 
+		tempEndTime := time.Now()
+		// userTime, _ :c= common.CpuTimeDiff(startRusage, endRusage)
 		tempSumTime := tempEndTime.Sub(startTime).Seconds()
 		if c.cpuUsage < 1 {
 			fmt.Println("temp time", tempSumTime)
@@ -88,6 +91,7 @@ func (c *Compressor) TestByCmprType(input <-chan common.DataWithInfo, output cha
 }
 
 func (c *Compressor) TestOneBest(input <-chan common.DataWithInfo, output chan<- []byte, outputBufSize *atomic.Int64) {
+	common.SetAffinity(0)
 	for {
 		dataWithInfo := <-input
 		data := dataWithInfo.Data
@@ -110,11 +114,13 @@ func (c *Compressor) TestOneBest(input <-chan common.DataWithInfo, output chan<-
 		maxType := common.INVALID_START
 		if len(c.obBest) == 0 || c.obBest == nil {
 			for cmprType := common.INVALID_START + 1; cmprType < common.INVALID_END; cmprType++ {
-				if cmprType == common.RLE || cmprType == common.DELTA {
-					continue
-				}
+				// if cmprType == common.RLE || cmprType == common.DELTA {
+				// 	continue
+				// }
 				cmpr := c.allCmprs.GetCompressorByType(cmprType)
 				startTime := time.Now()
+				startRusage, _ := common.GetRusage()
+
 				tempData := cmpr.Compress(data)
 				// tempEndTime := time.Now()
 				// tempSumTime := tempEndTime.Sub(startTime).Seconds()
@@ -122,21 +128,29 @@ func (c *Compressor) TestOneBest(input <-chan common.DataWithInfo, output chan<-
 				// 	time.Sleep(time.Duration(tempSumTime * float64(time.Second) * (1 - c.cpuUsage) * 100))
 				// }
 				endTime := time.Now()
+				endRusage, _ := common.GetRusage()
+				userTime, systemTime := common.CpuTimeDiff(startRusage, endRusage)
+
 				totalTime += endTime.Sub(startTime).Seconds()
 				// 压缩带宽 * 压缩增益
 				// fmt.Println("compress type", cmprType)
 				// fmt.Println("compress bw", float64(len(tempData))/float64(endTime.Sub(startTime).Seconds())*c.cpuUsage)
 				// fmt.Println("compress gain", float64(len(data))/float64(len(tempData)))
 				// fmt.Println("real bw", min(c.monitor.net_bandwitdh, float64(len(tempData))/float64(endTime.Sub(startTime).Seconds())*c.cpuUsage))
-				tempAnswer := min(c.monitor.net_bandwitdh, float64(len(tempData))/float64(endTime.Sub(startTime).Seconds())*c.cpuUsage) * float64(len(data)) / float64(len(tempData))
+				tempAnswer := min(c.monitor.net_bandwitdh, float64(len(tempData))/userTime.Seconds()*c.cpuUsage) * float64(len(data)) / float64(len(tempData))
 				if tempAnswer > maxAnswer {
 					maxAnswer = tempAnswer
 					maxData = tempData
 					maxTime = endTime.Sub(startTime).Seconds()
 					maxType = cmprType
 				}
+				fmt.Printf("User CPU time: %v\n", userTime)
+				fmt.Printf("System CPU time: %v\n", systemTime)
+				fmt.Println("cmprtype: ", cmprType, "compresionGain: ", float64(len(data))/float64(len(tempData)), "compressionBw: ", float64(len(tempData))/float64(endTime.Sub(startTime).Seconds()), "compressionTime", userTime.Seconds())
 			}
 			fmt.Println("maxType", maxType)
+			fmt.Println("record network bandwidth", c.monitor.net_bandwitdh)
+			fmt.Println("theoretical gain", maxAnswer)
 			if c.cpuUsage < 1 {
 				fmt.Println("max time", maxTime)
 				fmt.Println("sleep time", time.Duration(maxTime*float64(time.Second)*(1-c.cpuUsage)*100-totalTime+maxTime))
@@ -153,19 +167,21 @@ func (c *Compressor) TestOneBest(input <-chan common.DataWithInfo, output chan<-
 			}
 			maxType = c.obBest[c.idx]
 			c.idx++
-			if c.idx == len(c.obBest) {
-				c.idx = 0
-				fmt.Println("reach end", maxType)
-			}
+			fmt.Println("cmpr type", maxType)
+			fmt.Println("real compress bandwitdh", float64(len(maxData))/maxTime)
+			fmt.Println("record network bandwidth", c.monitor.net_bandwitdh)
+			fmt.Println("theoretical gain", min(c.monitor.net_bandwitdh, float64(len(maxData))/maxTime*c.cpuUsage)*float64(len(data))/float64(len(maxData)))
+			// if c.idx == len(c.obBest) {
+			// 	c.idx = 0
+			// 	fmt.Println("reach end", maxType)
+			// }
 		}
 
 		// cmpr := c.allCmprs.GetCompressorByType(cmprType)
 
 		// packageData = append(packageData, cmpr.Compress(data)...)
-		fmt.Println("real compress bandwitdh", float64(len(maxData))/maxTime)
 		fmt.Println("record network bandwidth", c.monitor.net_bandwitdh)
 		fmt.Println("compress gain", float64(len(data))/float64(len(maxData)))
-		fmt.Println("theoretical gain", min(c.monitor.net_bandwitdh, float64(len(maxData))/maxTime*c.cpuUsage)*float64(len(data))/float64(len(maxData)))
 		packageData = append(packageData, maxData...)
 
 		packageCmprLen := len(packageData) - 18
@@ -190,7 +206,9 @@ func (c *Compressor) TestOneBest(input <-chan common.DataWithInfo, output chan<-
 }
 
 func (c *Compressor) TestMultiBest(input <-chan common.DataWithInfo, output chan<- []byte, outputBufSize *atomic.Int64) {
+	common.SetAffinity(0)
 	for {
+		c.testTimes++
 		dataWithInfo := <-input
 		data := dataWithInfo.Data
 
@@ -213,14 +231,20 @@ func (c *Compressor) TestMultiBest(input <-chan common.DataWithInfo, output chan
 		// 1. 调用monitor，计算得到当前压缩比
 		if len(c.mbBest) == 0 || c.mbBest == nil {
 			for cmprType := common.INVALID_START + 1; cmprType < common.INVALID_END; cmprType++ {
+				// if cmprType == common.RLE || cmprType == common.DELTA {
+				// 	continue
+				// }
 				cmpr := c.allCmprs.GetCompressorByType(cmprType)
 				startTime := time.Now()
+				startRusage, _ := common.GetRusage()
+
 				tempData := cmpr.Compress(data)
 				// tempEndTime := time.Now()
 				// tempSumTime := tempEndTime.Sub(startTime).Seconds()
 				// if c.cpuUsage < 1 {
 				// 	time.Sleep(time.Duration(tempSumTime * float64(time.Second) * (1 - c.cpuUsage) * 100))
 				// }
+				endRusage, _ := common.GetRusage()
 				endTime := time.Now()
 				totalTime += endTime.Sub(startTime).Seconds()
 				// 压缩带宽 * 压缩增益
@@ -228,13 +252,28 @@ func (c *Compressor) TestMultiBest(input <-chan common.DataWithInfo, output chan
 				// fmt.Println("compress bw", float64(len(tempData))/float64(endTime.Sub(startTime).Seconds())*c.cpuUsage)
 				// fmt.Println("compress gain", float64(len(data))/float64(len(tempData)))
 				// fmt.Println("real bw", min(c.monitor.net_bandwitdh, float64(len(tempData))/float64(endTime.Sub(startTime).Seconds())*c.cpuUsage))
-				c.monitor.UpdateCompressionInfo(0, cmprType, len(data), len(tempData), float64(endTime.Sub(startTime).Seconds())*c.cpuUsage)
+				userTime, systemTime := common.CpuTimeDiff(startRusage, endRusage)
+				fmt.Printf("User CPU time: %v\n", userTime)
+				fmt.Printf("System CPU time: %v\n", systemTime)
+				c.monitor.UpdateCompressionInfo(0, cmprType, len(data), len(tempData), userTime.Seconds(), true) //float64(endTime.Sub(startTime).Seconds())
 			}
+			c.monitor.PrintCacheInfo()
+
+			fmt.Println("MultiBest Update Finished.")
 			cmprIntro := c.monitor.GetAlphaRatio(offAndLen)
 			offset := 0
 			fmt.Println("maxType:")
+			// for cmprType := common.INVALID_START + 1; cmprType < common.INVALID_END; cmprType++ {
+			// fmt.Println("cmprType: ", cmprType, " byteNum: ", cmprIntro[cmprType].ByteNum)
 			for _, cmprintro := range cmprIntro {
 				fmt.Println("cmprType: ", cmprintro.Point.Cmpr, " byteNum: ", cmprintro.ByteNum)
+			}
+			fmt.Println("record network bandwidth", c.monitor.net_bandwitdh)
+			fmt.Println("theoretical gain", c.monitor.opt)
+			// 打印compression gain和compress bandwitdh
+			for _, cmprintro := range cmprIntro {
+				columnCmpr := common.ColumnCmpr{Column: 0, Cmpr: cmprintro.Point.Cmpr}
+				fmt.Println("cmprType is: ", cmprintro.Point.Cmpr, " compresionGain: ", c.monitor.cmpr_cache[columnCmpr].CompressionGain, "compressionBw: ", c.monitor.cmpr_cache[columnCmpr].CompressionBandwidth)
 			}
 			for _, cmprintro := range cmprIntro {
 				// 2.1 根据列名和bytes，得到应该压缩的数据列
@@ -264,21 +303,24 @@ func (c *Compressor) TestMultiBest(input <-chan common.DataWithInfo, output chan
 		} else {
 			cmprIntro := c.mbBest[c.idx]
 			c.idx++
-			if c.idx == len(c.mbBest) {
-				c.idx = 0
-				fmt.Println("reach end", cmprIntro)
-			}
+			// if c.idx == len(c.mbBest) {
+			// 	c.idx = 0
+			// 	fmt.Println("reach end", cmprIntro)
+			// }
 			offset := 0
 			allTime := float64(0)
-			packageData := make([]byte, 18)
-			binary.LittleEndian.PutUint16(packageData[0:2], 1)
-			packageOriLen := 0
-			packageCmprLen := 0
+
+			fmt.Println("start new package")
 			for _, cmprintro := range cmprIntro {
-				// temppackageData := make([]byte, 18)
-				// binary.LittleEndian.PutUint16(temppackageData[0:2], 1)
-				// tempPackageOriLen := 0
-				// tempPackageCmprLen := 0
+				packageData := make([]byte, 18)
+				// extra := make([]byte, 18)
+				// packageData = append(packageData, extra...)
+				binary.LittleEndian.PutUint16(packageData[0:2], 1)
+				packageOriLen := 0
+				packageCmprLen := 0
+				if cmprintro.ByteNum == 0 {
+					continue
+				}
 				// 2.1 根据列名和bytes，得到应该压缩的数据列
 				tempData := data[offset : offset+int(cmprintro.ByteNum)]
 				offset += int(cmprintro.ByteNum)
@@ -290,27 +332,30 @@ func (c *Compressor) TestMultiBest(input <-chan common.DataWithInfo, output chan
 
 				cmprLen1 := len(packageData)
 				startTime := time.Now()
-
-				packageData = append(packageData, compressor.Compress(tempData)...)
+				tempCmprData := compressor.Compress(tempData)
 
 				tempEndTime := time.Now()
 				tempSumTime := tempEndTime.Sub(startTime).Seconds()
 				allTime += tempSumTime
+				packageData = append(packageData, tempCmprData...)
 				if c.cpuUsage < 1 {
 					time.Sleep(time.Duration(tempSumTime * float64(time.Second) * (1 - c.cpuUsage) * 100))
 				}
 				cmprLen := len(packageData) - cmprLen1
 				packageCmprLen += cmprLen
 				bufferCmprLen += cmprLen
+				binary.LittleEndian.PutUint64(packageData[2:10], uint64(packageOriLen))
+				binary.LittleEndian.PutUint64(packageData[10:18], uint64(packageCmprLen))
+				output <- packageData
+				outputBufSize.Add(int64(len(packageData)))
+
+				fmt.Println("cmpr type", cmprintro.CmprType)
+				fmt.Println("cmpr bytes", cmprintro.ByteNum)
+				fmt.Println("real compress bandwitdh", float64(packageCmprLen)/float64(allTime))
+				fmt.Println("record network bandwidth", c.monitor.net_bandwitdh)
+				fmt.Println("compress gain", float64(packageOriLen)/float64(packageCmprLen))
+				fmt.Println("theoretical gain", min(c.monitor.net_bandwitdh, float64(packageCmprLen)/allTime*c.cpuUsage)*float64(packageOriLen)/float64(packageCmprLen))
 			}
-			binary.LittleEndian.PutUint64(packageData[2:10], uint64(packageOriLen))
-			binary.LittleEndian.PutUint64(packageData[10:18], uint64(packageCmprLen))
-			output <- packageData
-			outputBufSize.Add(int64(len(packageData)))
-			fmt.Println("real compress bandwitdh", float64(packageCmprLen)/float64(allTime))
-			fmt.Println("record network bandwidth", c.monitor.net_bandwitdh)
-			fmt.Println("compress gain", float64(packageOriLen)/float64(packageCmprLen))
-			fmt.Println("theoretical gain", min(c.monitor.net_bandwitdh, float64(packageCmprLen)/allTime*c.cpuUsage)*float64(packageOriLen)/float64(packageCmprLen))
 		}
 
 		// ONLY TEST startTs, totalEvents, oriLen, cmprLen
@@ -337,6 +382,8 @@ func (c *Compressor) TestMultiSegmentBest(input <-chan *aggregate.AggregateData,
 		outputBufSize.Add(int64(len(startBuffer)))
 		bufferOriLen := 0
 		bufferCmprLen := 0
+		testTotalByteNum := 0
+		// for循环是压缩每个package
 		for {
 			offAndLens := aggData.GetOffsetAndLen()
 			packageData := make([]byte, 18)
@@ -360,17 +407,18 @@ func (c *Compressor) TestMultiSegmentBest(input <-chan *aggregate.AggregateData,
 								time.Sleep(time.Duration(tempSumTime * float64(time.Second) * (1 - c.cpuUsage) * 100))
 							}
 							cmprLen := len(tempData)
-							c.monitor.UpdateCompressionInfo(byte(i), j, oriLen, cmprLen, tempSumTime)
+							c.monitor.UpdateCompressionInfo(byte(i), j, oriLen, cmprLen, tempSumTime, true)
 							tempData = nil
-						}
-						if i == 20 {
-							runtime.GC()
 						}
 					}
 				}
+				c.monitor.PrintCacheInfo()
+
 				// 2. 计算得到最优比例，压缩传输
 				cmprIntro := c.monitor.GetAlphaRatio(offAndLens)
 				if len(cmprIntro) == 0 {
+					fmt.Println("total ori len", bufferOriLen)
+					fmt.Println("total bytenum", testTotalByteNum)
 					break
 				}
 				fmt.Println("maxType:")
@@ -381,6 +429,7 @@ func (c *Compressor) TestMultiSegmentBest(input <-chan *aggregate.AggregateData,
 				for _, cmprintro := range cmprIntro {
 					// 2.1 根据列名和bytes，得到应该压缩的数据列
 					data := aggData.GetColumnData(cmprintro.Point.Column, cmprintro.ByteNum)
+					testTotalByteNum += int(cmprintro.ByteNum)
 					// 2.2 根据压缩算法名，得到压缩器,并更新offset
 					compressor := c.allCmprs.GetCompressorByType(cmprintro.Point.Cmpr)
 					// 2.3 压缩
@@ -403,15 +452,18 @@ func (c *Compressor) TestMultiSegmentBest(input <-chan *aggregate.AggregateData,
 					packageCmprLen += cmprLen
 
 					// 2.5 更新monitor中的cache，同时更新offset
-					c.monitor.UpdateCompressionInfo(cmprintro.Point.Column, cmprintro.Point.Cmpr, oriLen, cmprLen, endTime.Sub(startTime).Seconds())
+					c.monitor.UpdateCompressionInfo(cmprintro.Point.Column, cmprintro.Point.Cmpr, oriLen, cmprLen, endTime.Sub(startTime).Seconds(), true)
 				}
+				c.monitor.PrintCacheInfo()
+
 				// fmt.Printf("%v\n", cmprIntro)
 			} else {
 				cmprIntro := c.hybridBest[c.idx]
 				c.idx++
 				if c.idx == len(c.hybridBest) {
 					c.idx = 0
-					fmt.Println("reach end", cmprIntro)
+					fmt.Println("reach end", cmprIntro) // 直接在这里break...
+					break
 				}
 				for _, cmprintro := range cmprIntro {
 					// 2.1 根据列名和bytes，得到应该压缩的数据列
@@ -516,7 +568,7 @@ func (c *Compressor) TestOurs(input <-chan common.DataWithInfo, output chan<- []
 				packageCmprLen += cmprLen
 
 				// 2.5 更新monitor中的cache
-				c.monitor.UpdateCompressionInfo(cmprintro.Point.Column, cmprintro.Point.Cmpr, oriLen, cmprLen, endTime.Sub(startTime).Seconds())
+				c.monitor.UpdateCompressionInfo(cmprintro.Point.Column, cmprintro.Point.Cmpr, oriLen, cmprLen, endTime.Sub(startTime).Seconds(), false)
 				binary.LittleEndian.PutUint64(packageData[2:10], uint64(packageOriLen))
 				binary.LittleEndian.PutUint64(packageData[10:18], uint64(packageCmprLen))
 				bufferOriLen += packageOriLen
@@ -525,8 +577,22 @@ func (c *Compressor) TestOurs(input <-chan common.DataWithInfo, output chan<- []
 				output <- packageData[0:]
 				outputBufSize.Add(int64(len(packageData)))
 			}
+			c.monitor.PrintCacheInfo()
 			offAndLen[0].Offset += int64(offset)
-
+			// fmt.Println("touseMLP", c.monitor.touseMLP)
+			// s := time.Now()
+			// if c.monitor.touseMLP == 1 {
+			// 	c.monitor.UpdateCmprgainOfColumns(cmprIntro)
+			// 	c.monitor.UpdateCmprbwOfColumns(cmprIntro)
+			// 	c.monitor.touseMLP = 0
+			// } else if c.monitor.touseMLP == 2 {
+			// 	c.monitor.UpdateMLPgain(cmprIntro)
+			// 	c.monitor.UpdateMLPbw(cmprIntro)
+			// 	c.monitor.touseMLP = 0
+			// }
+			// e := time.Now()
+			// elapsed := e.Sub(s)
+			// fmt.Printf("代码运行时间: %v\n", elapsed)
 			fmt.Println("real compress bandwitdh", float64(allCmprLen)/all)
 		}
 		// ONLY TEST startTs, totalEvents, oriLen, cmprLen
@@ -671,8 +737,20 @@ func (c *Compressor) Compress(input <-chan *aggregate.AggregateData, output chan
 				packageCmprLen += cmprLen
 
 				// 2.5 更新monitor中的cache，同时更新offset
-				c.monitor.UpdateCompressionInfo(cmprintro.Point.Column, cmprintro.Point.Cmpr, oriLen, cmprLen, endTime.Sub(startTime).Seconds())
+				c.monitor.UpdateCompressionInfo(cmprintro.Point.Column, cmprintro.Point.Cmpr, oriLen, cmprLen, endTime.Sub(startTime).Seconds(), false)
 			}
+			c.monitor.PrintCacheInfo()
+
+			// fmt.Println("touseMLP", c.monitor.touseMLP)
+			// if c.monitor.touseMLP == 1 {
+			// 	c.monitor.UpdateCmprgainOfColumns(cmprIntro)
+			// 	c.monitor.UpdateCmprbwOfColumns(cmprIntro)
+			// 	c.monitor.touseMLP = 0
+			// } else if c.monitor.touseMLP == 2 {
+			// 	c.monitor.UpdateMLPgain(cmprIntro)
+			// 	c.monitor.UpdateMLPbw(cmprIntro)
+			// 	c.monitor.touseMLP = 0
+			// }
 
 			fmt.Println("real compress bandwitdh", float64(packageCmprLen)/all)
 			fmt.Println("record network bandwidth", c.monitor.net_bandwitdh)

@@ -27,8 +27,8 @@ type Initer struct {
 	outputBufSize atomic.Int64
 }
 
-func NewIniter(w io.Writer, bufferSize int, packageSize int, cpuUsage float64, obBest []byte, mbBest [][]common.CmprTypeData, hybridBest [][]common.CompressionIntro, rate float64, limitThreshold int64) *Initer {
-	monitor := NewMonitor(packageSize, rate)
+func NewIniter(w io.Writer, bufferSize int, packageSize int, cpuUsage float64, obBest []byte, mbBest [][]common.CmprTypeData, hybridBest [][]common.CompressionIntro, rate float64, limitThreshold int64, epochThreshold int64, needLimit bool) *Initer {
+	monitor := NewMonitor(packageSize, rate, epochThreshold)
 	i := &Initer{
 		w:         w,
 		inputBuf:  make(chan []byte, 10),
@@ -41,7 +41,7 @@ func NewIniter(w io.Writer, bufferSize int, packageSize int, cpuUsage float64, o
 		div:       NewDivider(bufferSize),
 		agg:       aggregate.NewAggregator(),
 		cmpr:      NewCompressor(monitor, cpuUsage, obBest, mbBest, hybridBest),
-		tsport:    NewTransporter(monitor, w, limitThreshold),
+		tsport:    NewTransporter(monitor, w, limitThreshold, needLimit),
 	}
 	return i
 }
